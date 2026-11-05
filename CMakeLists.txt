@@ -20,6 +20,8 @@ add_executable(premises_control
         models/AccessPolicy.h
         models/AccessPolicy.cpp
         models/AccessPolicyRepo.h
-        models/AccessPolicyRepo.cpp)
+        models/AccessPolicyRepo.cpp
+        Database.h
+        Database.cpp)
 
 target_link_libraries(premises_control PRIVATE SQLite3::SQLite3)
