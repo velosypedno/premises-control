@@ -7,19 +7,19 @@ find_package(SQLite3 REQUIRED)
 
 add_executable(premises_control
         main.cpp
-        User.h
-        User.cpp
-        UserRepo.h
-        UserRepo.cpp
-        uuid.h
-        uuid.cpp
-        Card.h
-        Card.cpp
-        CardRepo.h
-        CardRepo.cpp
-        AccessPolicy.h
-        AccessPolicy.cpp
-        AccessPolicyRepo.h
-        AccessPolicyRepo.cpp)
+        models/User.h
+        models/User.cpp
+        models/UserRepo.h
+        models/UserRepo.cpp
+        models/uuid.h
+        models/uuid.cpp
+        models/Card.h
+        models/Card.cpp
+        models/CardRepo.h
+        models/CardRepo.cpp
+        models/AccessPolicy.h
+        models/AccessPolicy.cpp
+        models/AccessPolicyRepo.h
+        models/AccessPolicyRepo.cpp)
 
 target_link_libraries(premises_control PRIVATE SQLite3::SQLite3)
