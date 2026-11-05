@@ -1,7 +1,23 @@
+CREATE TABLE IF NOT EXISTS access_policies (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS access_policy_windows (
+    id TEXT PRIMARY KEY,
+    policy_id TEXT NOT NULL,
+    day_of_week TEXT NOT NULL,
+    from_time TEXT NOT NULL,
+    to_time TEXT NOT NULL,
+    FOREIGN KEY (policy_id) REFERENCES access_policies(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS users (
-     id TEXT PRIMARY KEY,
-     first_name TEXT NOT NULL,
-     last_name TEXT NOT NULL
+    id TEXT PRIMARY KEY,
+    first_name TEXT NOT NULL,
+    last_name TEXT NOT NULL,
+    policy_id TEXT,
+    FOREIGN KEY (policy_id) REFERENCES access_policies(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS cards (

@@ -16,6 +16,10 @@ add_executable(premises_control
         Card.h
         Card.cpp
         CardRepo.h
-        CardRepo.cpp)
+        CardRepo.cpp
+        AccessPolicy.h
+        AccessPolicy.cpp
+        AccessPolicyRepo.h
+        AccessPolicyRepo.cpp)
 
 target_link_libraries(premises_control PRIVATE SQLite3::SQLite3)
