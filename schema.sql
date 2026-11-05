@@ -29,3 +29,10 @@ CREATE TABLE IF NOT EXISTS cards (
     failed_attempts INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS access_logs (
+    id TEXT PRIMARY KEY,
+    timestamp TEXT NOT NULL,
+    card_id TEXT NOT NULL,
+    event_type TEXT NOT NULL
+);

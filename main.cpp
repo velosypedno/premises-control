@@ -3,9 +3,11 @@
 #include "models/User.h"
 #include "models/Card.h"
 #include "models/AccessPolicy.h"
+#include "models/AccessLogRecord.h"
 #include "models/UserRepo.h"
 #include "models/CardRepo.h"
 #include "models/AccessPolicyRepo.h"
+#include "models/AccessLogRecordRepo.h"
 
 void runPolicyTests(AccessPolicyRepo& policyRepo, const User& u1, const User& u2) {
     std::cout << "--- Checking policy search by user ID (Maksym) ---:\n";
@@ -29,6 +31,33 @@ void runPolicyTests(AccessPolicyRepo& policyRepo, const User& u1, const User& u2
     }
 }
 
+void runLogTests(AccessLogRepo& logRepo, const Card& c1, const Card& c2) {
+    std::cout << "\n=== Access Log Testing ===\n";
+
+    logRepo.create(AccessLogRecord("2026-10-12 09:10:00", std::string(c1.getCardId()), LogEventType::Allowed));
+    logRepo.create(AccessLogRecord("2026-10-12 09:12:00", std::string(c2.getCardId()), LogEventType::WrongPin));
+    logRepo.create(AccessLogRecord("2026-10-12 09:13:00", std::string(c2.getCardId()), LogEventType::Blocked));
+    logRepo.create(AccessLogRecord("2026-10-12 14:30:00", std::string(c1.getCardId()), LogEventType::TimeIsNotAllowed));
+
+    std::cout << "Test log records successfully created.\n";
+
+    std::string targetCardId(c2.getCardId());
+    std::cout << "\n--- Log records for card ID: " << targetCardId << " ---:\n";
+    auto c2Logs = logRepo.getByCardId(targetCardId);
+    for (const auto& log : c2Logs) {
+        std::cout << "Time: " << log.getTimestamp()
+                  << " | Card: " << log.getCardId()
+                  << " | Event: " << AccessLogRecord::eventTypeToString(log.getEventType()) << '\n';
+    }
+
+    std::cout << "\n--- Full access log list (all records) ---:\n";
+    for (const auto& log : logRepo.list()) {
+        std::cout << "Time: " << log.getTimestamp()
+                  << " | Card: " << log.getCardId()
+                  << " | Event: " << AccessLogRecord::eventTypeToString(log.getEventType()) << '\n';
+    }
+}
+
 int main() {
     try {
         Config config = Config::loadFromEnv();
@@ -39,19 +68,17 @@ int main() {
         Database::initializeSchema(db.get(), config.schemaPath);
         Database::clear(db.get());
 
-        // Initialize repositories
         UserRepo userRepo(db);
         CardRepo cardRepo(db);
         AccessPolicyRepo policyRepo(db);
+        AccessLogRepo logRepo(db);
 
-        // 1. Create access policy
         AccessPolicy workHoursPolicy("Standard Working Hours");
         workHoursPolicy.addWindow(AccessWindow(std::string(workHoursPolicy.getId()), DayOfWeek::Monday, "09:00", "18:00"));
         workHoursPolicy.addWindow(AccessWindow(std::string(workHoursPolicy.getId()), DayOfWeek::Friday, "09:00", "17:00"));
         policyRepo.create(workHoursPolicy);
         std::cout << "Access policy '" << workHoursPolicy.getName() << "' saved to the database.\n";
 
-        // 2. Create users and assign policy
         User u1("Maksym", "Shevchenko");
         userRepo.create(u1);
         u1.setPolicyId(std::string(workHoursPolicy.getId()));
@@ -61,13 +88,15 @@ int main() {
         userRepo.create(u2);
         std::cout << "Users created and assigned to policies.\n";
 
-        // 3. Create cards
-        cardRepo.create(Card(std::string(u1.getId()), "1234567890123456", "hashed_pin_1"));
-        cardRepo.create(Card(std::string(u2.getId()), "9876543210987654", "hashed_pin_2"));
+        Card c1(std::string(u1.getId()), "1234567890123456", "hashed_pin_1");
+        Card c2(std::string(u2.getId()), "9876543210987654", "hashed_pin_2");
+        cardRepo.create(c1);
+        cardRepo.create(c2);
         std::cout << "Cards created.\n\n";
 
-        // 4. Run tests/checks
         runPolicyTests(policyRepo, u1, u2);
+
+        runLogTests(logRepo, c1, c2);
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
