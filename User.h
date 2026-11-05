@@ -26,10 +26,6 @@ public:
     std::string_view getLastName() const noexcept;
     std::string getFullName() const;
 
-    void setId(std::string newId);
-    void setFirstName(std::string newFirstName);
-    void setLastName(std::string newLastName);
-
 private:
     static std::string generateUuid();
 };

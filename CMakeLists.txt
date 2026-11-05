@@ -10,6 +10,12 @@ add_executable(premises_control
         User.h
         User.cpp
         UserRepo.h
-        UserRepo.cpp)
+        UserRepo.cpp
+        uuid.h
+        uuid.cpp
+        Card.h
+        Card.cpp
+        CardRepo.h
+        CardRepo.cpp)
 
 target_link_libraries(premises_control PRIVATE SQLite3::SQLite3)

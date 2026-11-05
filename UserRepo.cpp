@@ -46,26 +46,6 @@ std::optional<User> UserRepo::getById(const std::string& id) {
     return user;
 }
 
-void UserRepo::update(const User& user) {
-    const char* sql = "UPDATE users SET first_name = ?, last_name = ? WHERE id = ?;";
-    sqlite3_stmt* stmt = nullptr;
-
-    if (sqlite3_prepare_v2(db.get(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
-        throw std::runtime_error(sqlite3_errmsg(db.get()));
-    }
-
-    sqlite3_bind_text(stmt, 1, user.getFirstName().data(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, user.getLastName().data(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 3, user.getId().data(), -1, SQLITE_TRANSIENT);
-
-    if (sqlite3_step(stmt) != SQLITE_DONE) {
-        sqlite3_finalize(stmt);
-        throw std::runtime_error(sqlite3_errmsg(db.get()));
-    }
-
-    sqlite3_finalize(stmt);
-}
-
 void UserRepo::remove(const std::string& id) {
     const char* sql = "DELETE FROM users WHERE id = ?;";
     sqlite3_stmt* stmt = nullptr;

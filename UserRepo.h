@@ -16,7 +16,6 @@ public:
 
     void create(const User& user);
     std::optional<User> getById(const std::string& id);
-    void update(const User& user);
     void remove(const std::string& id);
     std::vector<User> list();
 };
