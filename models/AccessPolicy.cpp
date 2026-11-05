@@ -12,7 +12,7 @@ bool AccessWindow::isValidTimeFormat(std::string_view time) {
     if (!std::isdigit(time[0]) || !std::isdigit(time[1]) ||
         !std::isdigit(time[3]) || !std::isdigit(time[4])) {
         return false;
-        }
+    }
 
     int hours = (time[0] - '0') * 10 + (time[1] - '0');
     int minutes = (time[3] - '0') * 10 + (time[4] - '0');
@@ -22,14 +22,14 @@ bool AccessWindow::isValidTimeFormat(std::string_view time) {
 
 AccessWindow::AccessWindow(std::string id, std::string policyId, DayOfWeek day, std::string fromTime, std::string toTime)
     : id(std::move(id)), policyId(std::move(policyId)), day(day) {
-    
+
     setFromTime(fromTime);
     setToTime(toTime);
 }
 
 AccessWindow::AccessWindow(std::string policyId, DayOfWeek day, std::string fromTime, std::string toTime)
     : id(uuid::generate()), policyId(std::move(policyId)), day(day) {
-    
+
     setFromTime(fromTime);
     setToTime(toTime);
 }
@@ -60,20 +60,20 @@ void AccessWindow::setDay(DayOfWeek newDay) noexcept {
 
 void AccessWindow::setFromTime(std::string newFromTime) {
     if (!isValidTimeFormat(newFromTime)) {
-        throw std::invalid_argument("Невірний формат часу 'fromTime'. Використовуйте HH:MM (наприклад, 09:00).");
+        throw std::invalid_argument("Invalid 'fromTime' format. Use HH:MM (e.g., 09:00).");
     }
     if (!toTime.empty() && newFromTime >= toTime) {
-        throw std::invalid_argument("Час початку ('fromTime') повинен бути меншим за час кінця ('toTime').");
+        throw std::invalid_argument("Start time ('fromTime') must be earlier than end time ('toTime').");
     }
     fromTime = std::move(newFromTime);
 }
 
 void AccessWindow::setToTime(std::string newToTime) {
     if (!isValidTimeFormat(newToTime)) {
-        throw std::invalid_argument("Невірний формат часу 'toTime'. Використовуйте HH:MM (наприклад, 18:00).");
+        throw std::invalid_argument("Invalid 'toTime' format. Use HH:MM (e.g., 18:00).");
     }
     if (!fromTime.empty() && newToTime <= fromTime) {
-        throw std::invalid_argument("Час кінця ('toTime') повинен бути більшим за час початку ('fromTime').");
+        throw std::invalid_argument("End time ('toTime') must be later than start time ('fromTime').");
     }
     toTime = std::move(newToTime);
 }
@@ -108,7 +108,6 @@ DayOfWeek AccessWindow::stringToDay(std::string_view str) {
     return DayOfWeek::Monday;
 }
 
-
 AccessPolicy::AccessPolicy(std::string id, std::string name, std::vector<AccessWindow> windows)
     : id(std::move(id)), name(std::move(name)), windows(std::move(windows)) {}
 
@@ -129,7 +128,7 @@ const std::vector<AccessWindow>& AccessPolicy::getWindows() const noexcept {
 
 void AccessPolicy::setName(std::string newName) {
     if (newName.empty()) {
-        throw std::invalid_argument("Назва політики не може бути порожньою.");
+        throw std::invalid_argument("Policy name cannot be empty.");
     }
     name = std::move(newName);
 }

@@ -81,7 +81,6 @@ std::vector<Card> CardRepo::listByUserId(const std::string& userId) {
 }
 
 void CardRepo::update(const Card& card) {
-    // Оновлюємо pin_hash, status та failed_attempts (весь об'єкт передається, але міняються специфічні поля)
     const char* sql = "UPDATE cards SET pin_hash = ?, status = ?, failed_attempts = ? WHERE id = ?;";
     sqlite3_stmt* stmt = nullptr;
 
