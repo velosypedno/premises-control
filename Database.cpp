@@ -56,10 +56,15 @@ void Database::initializeSchema(sqlite3* db, const std::string& schemaPath) {
 
 void Database::clear(sqlite3* db) {
     char* errMsg = nullptr;
-    const char* clearSql = "DELETE FROM access_policy_windows; DELETE FROM cards; DELETE FROM users; DELETE FROM access_policies;";
+    const char* clearSql =
+        "DELETE FROM access_logs; "
+        "DELETE FROM access_policy_windows; "
+        "DELETE FROM cards; "
+        "DELETE FROM users; "
+        "DELETE FROM access_policies;";
 
     if (sqlite3_exec(db, clearSql, nullptr, nullptr, &errMsg) != SQLITE_OK) {
-        std::string error(errMsg);
+        std::string error(errMsg ? errMsg : "Unknown SQL error");
         sqlite3_free(errMsg);
         throw std::runtime_error("Table clearing error: " + error);
     }

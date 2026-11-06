@@ -4,6 +4,7 @@ project(premises_control)
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(SQLite3 REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 add_executable(premises_control
         main.cpp
@@ -26,6 +27,14 @@ add_executable(premises_control
         models/AccessLogRecord.h
         models/AccessLogRecord.cpp
         models/AccessLogRecordRepo.h
-        models/AccessLogRecordRepo.cpp)
+        models/AccessLogRecordRepo.cpp
+        services/AuthService.h
+        services/AuthService.cpp
+        services/CryptoService.h
+        services/CryptoService.cpp)
 
-target_link_libraries(premises_control PRIVATE SQLite3::SQLite3)
+target_link_libraries(premises_control PRIVATE
+        SQLite3::SQLite3
+        OpenSSL::SSL
+        OpenSSL::Crypto
+)

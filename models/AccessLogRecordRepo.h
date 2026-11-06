@@ -7,14 +7,14 @@
 #include <sqlite3.h>
 #include "AccessLogRecord.h"
 
-class AccessLogRepo {
+class AccessLogRecordRepo {
 private:
     std::shared_ptr<sqlite3> db;
 
     static AccessLogRecord extractRecord(sqlite3_stmt* stmt);
 
 public:
-    explicit AccessLogRepo(std::shared_ptr<sqlite3> dbConnection);
+    explicit AccessLogRecordRepo(std::shared_ptr<sqlite3> dbConnection);
 
     void create(const AccessLogRecord& record);
     

@@ -1,9 +1,9 @@
 #include "AccessLogRecordRepo.h"
 #include <stdexcept>
 
-AccessLogRepo::AccessLogRepo(std::shared_ptr<sqlite3> dbConnection) : db(std::move(dbConnection)) {}
+AccessLogRecordRepo::AccessLogRecordRepo(std::shared_ptr<sqlite3> dbConnection) : db(std::move(dbConnection)) {}
 
-AccessLogRecord AccessLogRepo::extractRecord(sqlite3_stmt* stmt) {
+AccessLogRecord AccessLogRecordRepo::extractRecord(sqlite3_stmt* stmt) {
     std::string id = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
     std::string timestamp = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
     std::string cardId = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
@@ -14,7 +14,7 @@ AccessLogRecord AccessLogRepo::extractRecord(sqlite3_stmt* stmt) {
     return AccessLogRecord(std::move(id), std::move(timestamp), std::move(cardId), eventType);
 }
 
-void AccessLogRepo::create(const AccessLogRecord& record) {
+void AccessLogRecordRepo::create(const AccessLogRecord& record) {
     const char* sql = "INSERT INTO access_logs (id, timestamp, card_id, event_type) VALUES (?, ?, ?, ?);";
     sqlite3_stmt* stmt = nullptr;
 
@@ -37,7 +37,7 @@ void AccessLogRepo::create(const AccessLogRecord& record) {
     sqlite3_finalize(stmt);
 }
 
-std::optional<AccessLogRecord> AccessLogRepo::getById(const std::string& id) {
+std::optional<AccessLogRecord> AccessLogRecordRepo::getById(const std::string& id) {
     const char* sql = "SELECT id, timestamp, card_id, event_type FROM access_logs WHERE id = ?;";
     sqlite3_stmt* stmt = nullptr;
 
@@ -56,7 +56,7 @@ std::optional<AccessLogRecord> AccessLogRepo::getById(const std::string& id) {
     return record;
 }
 
-std::vector<AccessLogRecord> AccessLogRepo::getByCardId(const std::string& cardId) {
+std::vector<AccessLogRecord> AccessLogRecordRepo::getByCardId(const std::string& cardId) {
     const char* sql = "SELECT id, timestamp, card_id, event_type FROM access_logs WHERE card_id = ? ORDER BY timestamp DESC;";
     sqlite3_stmt* stmt = nullptr;
     std::vector<AccessLogRecord> records;
@@ -75,7 +75,7 @@ std::vector<AccessLogRecord> AccessLogRepo::getByCardId(const std::string& cardI
     return records;
 }
 
-std::vector<AccessLogRecord> AccessLogRepo::list() {
+std::vector<AccessLogRecord> AccessLogRecordRepo::list() {
     const char* sql = "SELECT id, timestamp, card_id, event_type FROM access_logs ORDER BY timestamp DESC;";
     sqlite3_stmt* stmt = nullptr;
     std::vector<AccessLogRecord> records;
