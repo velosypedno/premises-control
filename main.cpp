@@ -1,5 +1,5 @@
 #include <iostream>
-#include "Database.h"
+#include "infra/Database.h"
 #include "models/User.h"
 #include "models/Card.h"
 #include "models/AccessPolicy.h"
@@ -144,5 +144,6 @@ int main() {
         return 1;
     }
 
+    std::cout << "All tests passed successfully.\n";
     return 0;
 }
