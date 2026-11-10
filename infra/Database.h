@@ -4,13 +4,6 @@
 #include <memory>
 #include <sqlite3.h>
 
-struct Config {
-    std::string dbPath;
-    std::string schemaPath;
-
-    static Config loadFromEnv();
-};
-
 class Database {
 public:
     static std::shared_ptr<sqlite3> openConnection(const std::string& dbPath);

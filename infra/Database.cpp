@@ -1,19 +1,13 @@
 #include "Database.h"
-#include <cstdlib>
+#include "Config.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <iostream>
 
-namespace fs = std::filesystem;
 
-Config Config::loadFromEnv() {
-    return Config{
-        std::getenv("DB_PATH") ? std::getenv("DB_PATH") : "app.db",
-        std::getenv("SCHEMA_PATH") ? std::getenv("SCHEMA_PATH") : "schema.sql"
-    };
-}
+namespace fs = std::filesystem;
 
 std::shared_ptr<sqlite3> Database::openConnection(const std::string& dbPath) {
     sqlite3* rawDb = nullptr;

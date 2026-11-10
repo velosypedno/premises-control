@@ -24,6 +24,8 @@ add_executable(premises_control
         models/AccessPolicyRepo.cpp
         infra/Database.h
         infra/Database.cpp
+        infra/Config.h
+        infra/Config.cpp
         models/AccessLogRecord.h
         models/AccessLogRecord.cpp
         models/AccessLogRecordRepo.h

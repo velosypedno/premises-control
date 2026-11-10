@@ -1,5 +1,7 @@
 #include <iostream>
+
 #include "infra/Database.h"
+#include "infra/Config.h"
 #include "models/User.h"
 #include "models/Card.h"
 #include "models/AccessPolicy.h"
@@ -85,7 +87,7 @@ int main() {
         Database::clear(db.get());
 
         // 1. Створюємо сервіс шифрування з єдиною глобальною сіллю
-        auto cryptoService = std::make_shared<CryptoService>("super_secure_system_salt_2026");
+        auto cryptoService = std::make_shared<CryptoService>(config.salt);
 
         // Initialize repositories
         UserRepo userRepo(db);
