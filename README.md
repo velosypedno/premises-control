@@ -6,22 +6,18 @@
 
 - SQLite3
 - OpenSSL
+- FTXUI
 
-## Збірка
+## Збірка та запуск
 
 ```bash
+# Зконфігурувати та зібрати проєкт
 cmake -B cmake-build-debug -DCMAKE_BUILD_TYPE=Debug
 cmake --build cmake-build-debug
-```
 
-## Налаштування
+# Зв'язати compile_commands.json для підтримки LSP (Zed / Clangd)
+ln -sf cmake-build-debug/compile_commands.json compile_commands.json
 
-```bash
+# Налаштувати оточення та запустити
 cp .env.sample .env
-```
-
-## Запуск
-
-```bash
 env $(cat .env | xargs) ./cmake-build-debug/premises_control
-```

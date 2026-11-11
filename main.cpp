@@ -12,6 +12,7 @@
 #include "services/CryptoService.h"
 #include "services/CardCheck.h"
 #include "services/AdminCheck.h"
+#include "ui/ConsoleUI.h"
 
 void runPolicyTests(AccessPolicyRepo& policyRepo, const User& u1, const User& u2) {
     std::cout << "--- Checking policy search by user ID (Maksym) ---:\n";
@@ -92,87 +93,84 @@ void runLogTests(AccessLogRecordRepo& logRepo) {
     }
 }
 
+// 1. Процедура виконання всіх системних тестів
+void runAllTests() {
+    Config config = Config::loadFromEnv();
+    std::cout << "Using database: " << config.dbPath << '\n';
+
+    auto db = Database::openConnection(config.dbPath);
+
+    Database::initializeSchema(db.get(), config.schemaPath);
+    Database::clear(db.get());
+
+    auto cryptoService = std::make_shared<CryptoService>(config.salt);
+
+    std::string rootPassHash = cryptoService->hashPin(config.rootPass);
+    Database::initializeRootAdmin(db.get(), rootPassHash);
+    std::cout << "Root administrator initialized in database.\n";
+
+    auto userRepo = std::make_shared<UserRepo>(db);
+    auto cardRepo = std::make_shared<CardRepo>(db);
+    auto policyRepo = std::make_shared<AccessPolicyRepo>(db);
+    auto logRepo = std::make_shared<AccessLogRecordRepo>(db);
+
+    CardCheck cardCheckService(
+        cardRepo,
+        userRepo,
+        policyRepo,
+        logRepo,
+        cryptoService,
+        3
+    );
+
+    AdminCheck adminCheck(userRepo, cryptoService);
+
+    AccessPolicy workHoursPolicy("Standard Working Hours");
+    workHoursPolicy.addWindow(AccessWindow(std::string(workHoursPolicy.getId()), DayOfWeek::Monday, "09:00", "18:00"));
+    workHoursPolicy.addWindow(AccessWindow(std::string(workHoursPolicy.getId()), DayOfWeek::Friday, "09:00", "17:00"));
+    policyRepo->create(workHoursPolicy);
+    std::cout << "Access policy '" << workHoursPolicy.getName() << "' saved to the database.\n";
+
+    User u1("Maksym", "Shevchenko");
+    userRepo->create(u1);
+    u1.setPolicyId(std::string(workHoursPolicy.getId()));
+    userRepo->update(u1);
+
+    User u2("Kateryna", "Bondarenko");
+    userRepo->create(u2);
+    std::cout << "Regular users created and assigned to policies.\n";
+
+    std::string maksymPinHash = cryptoService->hashPin("1111");
+    std::string katerynaPinHash = cryptoService->hashPin("2222");
+
+    Card c1(std::string(u1.getId()), "1234567890123456", maksymPinHash);
+    Card c2(std::string(u2.getId()), "9876543210987654", katerynaPinHash);
+    cardRepo->create(c1);
+    cardRepo->create(c2);
+    std::cout << "Cards created with secured hashed PINs via CryptoService.\n\n";
+
+    runPolicyTests(*policyRepo, u1, u2);
+    runAdminTests(adminCheck, config.rootPass);
+    runAuthTests(cardCheckService, c1, c2);
+    runLogTests(*logRepo);
+
+    std::cout << "\nAll tests passed successfully.\n";
+}
+
+
+
 int main() {
     try {
-        Config config = Config::loadFromEnv();
-        std::cout << "Using database: " << config.dbPath << '\n';
+        // Крок 1: Виконання всіх системних тестів
+        runAllTests();
 
-        auto db = Database::openConnection(config.dbPath);
-
-        Database::initializeSchema(db.get(), config.schemaPath);
-        Database::clear(db.get());
-
-        // 1. Створюємо сервіс шифрування з глобальною сіллю
-        auto cryptoService = std::make_shared<CryptoService>(config.salt);
-
-        // 2. Ініціалізуємо root-адміна за допомогою методу бази даних
-        std::string rootPassHash = cryptoService->hashPin(config.rootPass);
-        Database::initializeRootAdmin(db.get(), rootPassHash);
-        std::cout << "Root administrator initialized in database.\n";
-
-        // Initialize repositories
-        auto userRepo = std::make_shared<UserRepo>(db);
-        auto cardRepo = std::make_shared<CardRepo>(db);
-        auto policyRepo = std::make_shared<AccessPolicyRepo>(db);
-        auto logRepo = std::make_shared<AccessLogRecordRepo>(db);
-
-        // 3. Initialize CardCheck service
-        CardCheck cardCheckService(
-            cardRepo,
-            userRepo,
-            policyRepo,
-            logRepo,
-            cryptoService,
-            3
-        );
-
-        // 4. Initialize AdminCheck service
-        AdminCheck adminCheck(userRepo, cryptoService);
-
-        // 5. Create access policy
-        AccessPolicy workHoursPolicy("Standard Working Hours");
-        workHoursPolicy.addWindow(AccessWindow(std::string(workHoursPolicy.getId()), DayOfWeek::Monday, "09:00", "18:00"));
-        workHoursPolicy.addWindow(AccessWindow(std::string(workHoursPolicy.getId()), DayOfWeek::Friday, "09:00", "17:00"));
-        policyRepo->create(workHoursPolicy);
-        std::cout << "Access policy '" << workHoursPolicy.getName() << "' saved to the database.\n";
-
-        // 6. Create regular users and assign policy
-        User u1("Maksym", "Shevchenko");
-        userRepo->create(u1);
-        u1.setPolicyId(std::string(workHoursPolicy.getId()));
-        userRepo->update(u1);
-
-        User u2("Kateryna", "Bondarenko");
-        userRepo->create(u2);
-        std::cout << "Regular users created and assigned to policies.\n";
-
-        // 7. Create cards using cryptoService for hashing PINs
-        std::string maksymPinHash = cryptoService->hashPin("1111");
-        std::string katerynaPinHash = cryptoService->hashPin("2222");
-
-        Card c1(std::string(u1.getId()), "1234567890123456", maksymPinHash);
-        Card c2(std::string(u2.getId()), "9876543210987654", katerynaPinHash);
-        cardRepo->create(c1);
-        cardRepo->create(c2);
-        std::cout << "Cards created with secured hashed PINs via CryptoService.\n\n";
-
-        // 8. Run policy tests
-        runPolicyTests(*policyRepo, u1, u2);
-
-        // 9. Run AdminCheck tests via the new AdminCheck service
-        runAdminTests(adminCheck, config.rootPass);
-
-        // 10. Run CardCheck integration tests
-        runAuthTests(cardCheckService, c1, c2);
-
-        // 11. Inspect generated logs
-        runLogTests(*logRepo);
+        // Крок 2: Запуск інтерактивного консольного UI
+        UI::runConsoleUI();
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
         return 1;
     }
 
-    std::cout << "\nAll tests passed successfully.\n";
     return 0;
 }

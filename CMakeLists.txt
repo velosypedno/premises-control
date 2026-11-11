@@ -2,9 +2,18 @@ cmake_minimum_required(VERSION 3.20)
 project(premises_control)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(SQLite3 REQUIRED)
 find_package(OpenSSL REQUIRED)
+
+include(FetchContent)
+FetchContent_Declare(
+  ftxui
+  GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI
+  GIT_TAG v5.0.0
+)
+FetchContent_MakeAvailable(ftxui)
 
 add_executable(premises_control
         main.cpp
@@ -35,10 +44,20 @@ add_executable(premises_control
         services/AdminCheck.h
         services/AdminCheck.cpp
         services/CryptoService.h
-        services/CryptoService.cpp)
+        services/CryptoService.cpp
+        ui/ConsoleUI.h
+        ui/ConsoleUI.cpp
+        ui/AdminView.h
+        ui/AdminView.cpp
+        ui/UserView.h
+        ui/UserView.cpp
+        )
 
 target_link_libraries(premises_control PRIVATE
         SQLite3::SQLite3
         OpenSSL::SSL
         OpenSSL::Crypto
+        ftxui::screen
+        ftxui::dom
+        ftxui::component
 )
