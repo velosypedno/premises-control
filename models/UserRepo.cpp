@@ -13,11 +13,24 @@ User UserRepo::extractUser(sqlite3_stmt* stmt) {
         policyId = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
     }
 
-    return User(std::move(id), std::move(firstName), std::move(lastName), std::move(policyId));
+    std::string roleStr = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4));
+    UserRole role = User::stringToRole(roleStr);
+
+    std::optional<std::string> username = std::nullopt;
+    if (sqlite3_column_type(stmt, 5) != SQLITE_NULL) {
+        username = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 5));
+    }
+
+    std::optional<std::string> passwordHash = std::nullopt;
+    if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
+        passwordHash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
+    }
+
+    return User(std::move(id), std::move(firstName), std::move(lastName), std::move(policyId), role, std::move(username), std::move(passwordHash));
 }
 
 void UserRepo::create(const User& user) {
-    const char* sql = "INSERT INTO users (id, first_name, last_name, policy_id) VALUES (?, ?, ?, ?);";
+    const char* sql = "INSERT INTO users (id, first_name, last_name, policy_id, role, username, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?);";
     sqlite3_stmt* stmt = nullptr;
 
     if (sqlite3_prepare_v2(db.get(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -35,6 +48,23 @@ void UserRepo::create(const User& user) {
         sqlite3_bind_null(stmt, 4);
     }
 
+    std::string roleStr = User::roleToString(user.getRole());
+    sqlite3_bind_text(stmt, 5, roleStr.c_str(), -1, SQLITE_TRANSIENT);
+
+    const auto& usernameOpt = user.getUsernameOpt();
+    if (usernameOpt.has_value()) {
+        sqlite3_bind_text(stmt, 6, usernameOpt->data(), -1, SQLITE_TRANSIENT);
+    } else {
+        sqlite3_bind_null(stmt, 6);
+    }
+
+    const auto& passwordOpt = user.getPasswordHashOpt();
+    if (passwordOpt.has_value()) {
+        sqlite3_bind_text(stmt, 7, passwordOpt->data(), -1, SQLITE_TRANSIENT);
+    } else {
+        sqlite3_bind_null(stmt, 7);
+    }
+
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         sqlite3_finalize(stmt);
         throw std::runtime_error(sqlite3_errmsg(db.get()));
@@ -44,7 +74,7 @@ void UserRepo::create(const User& user) {
 }
 
 std::optional<User> UserRepo::getById(const std::string& id) {
-    const char* sql = "SELECT id, first_name, last_name, policy_id FROM users WHERE id = ?;";
+    const char* sql = "SELECT id, first_name, last_name, policy_id, role, username, password_hash FROM users WHERE id = ?;";
     sqlite3_stmt* stmt = nullptr;
 
     if (sqlite3_prepare_v2(db.get(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -63,7 +93,7 @@ std::optional<User> UserRepo::getById(const std::string& id) {
 }
 
 void UserRepo::update(const User& user) {
-    const char* sql = "UPDATE users SET first_name = ?, last_name = ?, policy_id = ? WHERE id = ?;";
+    const char* sql = "UPDATE users SET first_name = ?, last_name = ?, policy_id = ?, role = ?, username = ?, password_hash = ? WHERE id = ?;";
     sqlite3_stmt* stmt = nullptr;
 
     if (sqlite3_prepare_v2(db.get(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -80,7 +110,24 @@ void UserRepo::update(const User& user) {
         sqlite3_bind_null(stmt, 3);
     }
 
-    sqlite3_bind_text(stmt, 4, user.getId().data(), -1, SQLITE_TRANSIENT);
+    std::string roleStr = User::roleToString(user.getRole());
+    sqlite3_bind_text(stmt, 4, roleStr.c_str(), -1, SQLITE_TRANSIENT);
+
+    const auto& usernameOpt = user.getUsernameOpt();
+    if (usernameOpt.has_value()) {
+        sqlite3_bind_text(stmt, 5, usernameOpt->data(), -1, SQLITE_TRANSIENT);
+    } else {
+        sqlite3_bind_null(stmt, 5);
+    }
+
+    const auto& passwordOpt = user.getPasswordHashOpt();
+    if (passwordOpt.has_value()) {
+        sqlite3_bind_text(stmt, 6, passwordOpt->data(), -1, SQLITE_TRANSIENT);
+    } else {
+        sqlite3_bind_null(stmt, 6);
+    }
+
+    sqlite3_bind_text(stmt, 7, user.getId().data(), -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         sqlite3_finalize(stmt);
@@ -109,7 +156,7 @@ void UserRepo::remove(const std::string& id) {
 }
 
 std::vector<User> UserRepo::list() {
-    const char* sql = "SELECT id, first_name, last_name, policy_id FROM users;";
+    const char* sql = "SELECT id, first_name, last_name, policy_id, role, username, password_hash FROM users;";
     sqlite3_stmt* stmt = nullptr;
     std::vector<User> users;
 

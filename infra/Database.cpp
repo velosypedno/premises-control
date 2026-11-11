@@ -1,4 +1,5 @@
 #include "Database.h"
+#include "../models/uuid.h"
 #include "Config.h"
 #include <filesystem>
 #include <fstream>
@@ -64,4 +65,28 @@ void Database::clear(sqlite3* db) {
     }
 
     std::cout << "All previous data from the database has been cleared.\n\n";
+}
+
+void Database::initializeRootAdmin(sqlite3* db, const std::string& passwordHash) {
+    std::string rootId = uuid::generate();
+
+    const char* sql =
+        "INSERT INTO users (id, first_name, last_name, policy_id, role, username, password_hash) "
+        "VALUES (?, 'Root', 'Admin', NULL, 'ADMIN', 'root', ?) "
+        "ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash;";
+
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error(sqlite3_errmsg(db));
+    }
+
+    sqlite3_bind_text(stmt, 1, rootId.c_str(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(stmt, 2, passwordHash.c_str(), -1, SQLITE_TRANSIENT);
+
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error(sqlite3_errmsg(db));
+    }
+
+    sqlite3_finalize(stmt);
 }

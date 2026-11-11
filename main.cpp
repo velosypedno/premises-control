@@ -1,5 +1,4 @@
 #include <iostream>
-
 #include "infra/Database.h"
 #include "infra/Config.h"
 #include "models/User.h"
@@ -53,7 +52,7 @@ void runAuthTests(AuthService& authService, const Card& c1, const Card& c2) {
     bool res3 = authService.authenticate(std::string(c2.getCardId()), "wrong_pin", DayOfWeek::Monday, "10:00");
     std::cout << (res3 ? "SUCCESS" : "FAILED") << '\n';
 
-    // 4. Перевірка блокування після перевищення ліміту (наприклад, ліміт 3 спроби)
+    // 4. Перевірка блокування після перевищення ліміту (ліміт 3 спроби)
     std::cout << "[Test 4] Kateryna wrong PIN attempt 2: ";
     authService.authenticate(std::string(c2.getCardId()), "wrong_pin", DayOfWeek::Monday, "10:00");
 
@@ -65,6 +64,32 @@ void runAuthTests(AuthService& authService, const Card& c1, const Card& c2) {
     std::cout << "[Test 6] Kateryna correct PIN with BLOCKED card (expected BLOCKED): ";
     bool res6 = authService.authenticate(std::string(c2.getCardId()), "2222", DayOfWeek::Monday, "10:00");
     std::cout << (res6 ? "SUCCESS" : "FAILED") << '\n';
+}
+
+void runAdminTests(UserRepo& userRepo, const CryptoService& cryptoService) {
+    std::cout << "\n=== Admin & Authentication Credential Testing ===\n";
+
+    // Створюємо root-адміна
+    std::string rootPassHash = cryptoService.hashPin("admin_secret_2026");
+    User rootUser("root_system_id", "System", "Administrator", std::nullopt, UserRole::Admin, "root", rootPassHash);
+    userRepo.create(rootUser);
+
+    // Перевіряємо зчитування та автентифікацію адміна за логіном та паролем
+    auto fetchedAdmin = userRepo.getById("root_system_id");
+    if (fetchedAdmin.has_value() && fetchedAdmin->getRole() == UserRole::Admin) {
+        std::cout << "Root admin successfully created and retrieved.\n";
+        std::cout << "Username: " << (fetchedAdmin->getUsername().has_value() ? *fetchedAdmin->getUsername() : "none") << '\n';
+
+        // Перевірка пароля
+        std::string inputPasswordHash = cryptoService.hashPin("admin_secret_2026");
+        if (fetchedAdmin->getPasswordHash().has_value() && *fetchedAdmin->getPasswordHash() == inputPasswordHash) {
+            std::cout << "Admin password verification: SUCCESS\n";
+        } else {
+            std::cout << "Admin password verification: FAILED\n";
+        }
+    } else {
+        std::cout << "Failed to retrieve root admin.\n";
+    }
 }
 
 void runLogTests(AccessLogRecordRepo& logRepo) {
@@ -86,7 +111,7 @@ int main() {
         Database::initializeSchema(db.get(), config.schemaPath);
         Database::clear(db.get());
 
-        // 1. Створюємо сервіс шифрування з єдиною глобальною сіллю
+        // 1. Створюємо сервіс шифрування з глобальною сіллю
         auto cryptoService = std::make_shared<CryptoService>(config.salt);
 
         // Initialize repositories
@@ -95,7 +120,7 @@ int main() {
         AccessPolicyRepo policyRepo(db);
         AccessLogRecordRepo logRepo(db);
 
-        // 2. Initialize AuthService (передаємо cryptoService замість голого рядка солі, ліміт спроб = 3)
+        // 2. Initialize AuthService
         AuthService authService(
             std::make_shared<CardRepo>(db),
             std::make_shared<UserRepo>(db),
@@ -112,7 +137,7 @@ int main() {
         policyRepo.create(workHoursPolicy);
         std::cout << "Access policy '" << workHoursPolicy.getName() << "' saved to the database.\n";
 
-        // 4. Create users and assign policy
+        // 4. Create regular users and assign policy
         User u1("Maksym", "Shevchenko");
         userRepo.create(u1);
         u1.setPolicyId(std::string(workHoursPolicy.getId()));
@@ -120,7 +145,7 @@ int main() {
 
         User u2("Kateryna", "Bondarenko");
         userRepo.create(u2);
-        std::cout << "Users created and assigned to policies.\n";
+        std::cout << "Regular users created and assigned to policies.\n";
 
         // 5. Create cards using cryptoService for hashing PINs
         std::string maksymPinHash = cryptoService->hashPin("1111");
@@ -135,10 +160,13 @@ int main() {
         // 6. Run policy tests
         runPolicyTests(policyRepo, u1, u2);
 
-        // 7. Run AuthService integration tests
+        // 7. Run Admin & Credentials tests
+        runAdminTests(userRepo, *cryptoService);
+
+        // 8. Run AuthService integration tests
         runAuthTests(authService, c1, c2);
 
-        // 8. Inspect generated logs
+        // 9. Inspect generated logs
         runLogTests(logRepo);
 
     } catch (const std::exception& e) {
@@ -146,6 +174,6 @@ int main() {
         return 1;
     }
 
-    std::cout << "All tests passed successfully.\n";
+    std::cout << "\nAll tests passed successfully.\n";
     return 0;
 }

@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS users (
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
     policy_id TEXT,
+    role TEXT NOT NULL DEFAULT 'USER',
+    username TEXT UNIQUE,
+    password_hash TEXT,
     FOREIGN KEY (policy_id) REFERENCES access_policies(id) ON DELETE SET NULL
 );
 
