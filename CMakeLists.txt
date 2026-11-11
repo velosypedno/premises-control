@@ -53,6 +53,16 @@ add_executable(premises_control
         ui/UserView.cpp
         ui/AdminDashboard.h
         ui/AdminDashboard.cpp
+        ui/AdminEditProfile.h
+        ui/AdminEditProfile.cpp
+        ui/AdminManageUsers.h
+        ui/AdminManageUsers.cpp
+        ui/AdminManageCards.h
+        ui/AdminManageCards.cpp
+        ui/AdminManagePolicies.h
+        ui/AdminManagePolicies.cpp
+        ui/AdminAccessLog.h
+        ui/AdminAccessLog.cpp
         )
 
 target_link_libraries(premises_control PRIVATE

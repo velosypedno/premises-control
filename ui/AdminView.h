@@ -30,6 +30,7 @@ namespace UI {
                   std::function<void()> onSuccess);
 
         ftxui::Component getComponent() { return component; }
+        const std::string& getUsername() const { return username; }
 
         void resetStatus() {
             statusMessage = "Enter administrator credentials.";
