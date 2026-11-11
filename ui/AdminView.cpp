@@ -5,8 +5,9 @@ namespace UI {
 AdminView::AdminView(std::shared_ptr<UserRepo> userRepo,
                      std::shared_ptr<CryptoService> cryptoService,
                      const std::string& rootPass,
-                     std::function<void()> onBack)
-    : adminCheck(userRepo, cryptoService), rootPass(rootPass), onBack(onBack)
+                     std::function<void()> onBack,
+                     std::function<void()> onSuccess)
+    : adminCheck(userRepo, cryptoService), rootPass(rootPass), onBack(onBack), onSuccess(onSuccess)
 {
     using namespace ftxui;
 
@@ -21,10 +22,17 @@ AdminView::AdminView(std::shared_ptr<UserRepo> userRepo,
         passBox,
     });
 
-    auto eventHandler = CatchEvent(container, [this, onBack](Event event) {
+    auto eventHandler = CatchEvent(container, [this, onBack, onSuccess](Event event) {
         if (event == Event::Return) {
             bool ok = adminCheck.authenticate(username, password);
-            statusMessage = ok ? "[Success]: Administrator authenticated!" : "[Error]: Invalid username or password!";
+            if (ok) {
+                statusMessage = "[Success]: Administrator authenticated!";
+                if (onSuccess) {
+                    onSuccess();
+                }
+            } else {
+                statusMessage = "[Error]: Invalid username or password!";
+            }
             return true;
         }
         if (event == Event::Escape) {
@@ -53,4 +61,4 @@ AdminView::AdminView(std::shared_ptr<UserRepo> userRepo,
     });
 }
 
-}
+} // namespace UI

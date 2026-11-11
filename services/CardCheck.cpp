@@ -51,7 +51,6 @@ bool CardCheck::authenticate(const std::string& cardId, const std::string& pin, 
         return false;
     }
 
-    // Використовуємо інкапсульований сервіс хешування
     std::string inputHash = cryptoService->hashPin(pin);
 
     if (inputHash != card.getPinHash()) {

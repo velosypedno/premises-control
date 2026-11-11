@@ -18,6 +18,7 @@ namespace UI {
         AdminCheck adminCheck;
         std::string rootPass;
         std::function<void()> onBack;
+        std::function<void()> onSuccess;
 
         ftxui::Component component;
 
@@ -25,7 +26,8 @@ namespace UI {
         AdminView(std::shared_ptr<UserRepo> userRepo,
                   std::shared_ptr<CryptoService> cryptoService,
                   const std::string& rootPass,
-                  std::function<void()> onBack);
+                  std::function<void()> onBack,
+                  std::function<void()> onSuccess);
 
         ftxui::Component getComponent() { return component; }
 

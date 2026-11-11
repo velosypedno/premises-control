@@ -1,6 +1,7 @@
 #include "ConsoleUI.h"
 #include "AdminView.h"
 #include "UserView.h"
+#include "AdminDashboard.h"
 
 #include <iostream>
 #include <vector>
@@ -29,15 +30,26 @@ void runConsoleUI() {
 
     using namespace ftxui;
 
-    int currentScreen = 0;
+    int currentScreen = 0; // 0: Main Menu, 1: Admin Login, 2: User Check, 3: Admin Dashboard
 
-    AdminView adminView(userRepo, cryptoService, config.rootPass, [&]() {
-        currentScreen = 0;
+    // Ініціалізація компонентів із колбеками навігації
+    AdminDashboard adminDashboard([&]() {
+        currentScreen = 0; // Вихід з дашборду назад у головне меню
     });
+
+    AdminView adminView(userRepo, cryptoService, config.rootPass,
+        [&]() { currentScreen = 0; }, // Esc -> Головне меню
+        [&]() {
+            adminDashboard.resetStatus();
+            currentScreen = 3;        // Успішний вхід -> Панель адміністратора
+        }
+    );
+
     UserView userView(cardRepo, userRepo, policyRepo, logRepo, cryptoService, [&]() {
-        currentScreen = 0;
+        currentScreen = 0; // Esc -> Головне меню
     });
 
+    // --- Головне меню ---
     int mainSelected = 0;
     std::vector<std::string> mainEntries = {
         "1. Admin Login (AdminCheck)",
@@ -75,10 +87,12 @@ void runConsoleUI() {
         return vbox(children) | border;
     });
 
+    // Реєстрація всіх екранів у Tab-контейнері
     Components screens = {
-        mainRenderer,
-        adminView.getComponent(),
-        userView.getComponent(),
+        mainRenderer,                // Індекс 0
+        adminView.getComponent(),    // Індекс 1
+        userView.getComponent(),     // Індекс 2
+        adminDashboard.getComponent() // Індекс 3
     };
 
     auto container = Container::Tab(screens, &currentScreen);
@@ -87,4 +101,4 @@ void runConsoleUI() {
     screen.Loop(container);
 }
 
-}
+} // namespace UI
