@@ -171,3 +171,22 @@ std::vector<User> UserRepo::list() {
     sqlite3_finalize(stmt);
     return users;
 }
+
+std::optional<User> UserRepo::getByUsername(const std::string& username) {
+    const char* sql = "SELECT id, first_name, last_name, policy_id, role, username, password_hash FROM users WHERE username = ?;";
+    sqlite3_stmt* stmt = nullptr;
+
+    if (sqlite3_prepare_v2(db.get(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error(sqlite3_errmsg(db.get()));
+    }
+
+    sqlite3_bind_text(stmt, 1, username.c_str(), -1, SQLITE_TRANSIENT);
+
+    std::optional<User> user = std::nullopt;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        user.emplace(extractUser(stmt));
+    }
+
+    sqlite3_finalize(stmt);
+    return user;
+}

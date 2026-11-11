@@ -30,8 +30,10 @@ add_executable(premises_control
         models/AccessLogRecord.cpp
         models/AccessLogRecordRepo.h
         models/AccessLogRecordRepo.cpp
-        services/AuthService.h
-        services/AuthService.cpp
+        services/CardCheck.h
+        services/CardCheck.cpp
+        services/AdminCheck.h
+        services/AdminCheck.cpp
         services/CryptoService.h
         services/CryptoService.cpp)
 

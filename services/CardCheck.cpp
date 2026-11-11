@@ -1,9 +1,9 @@
-#include "AuthService.h"
+#include "CardCheck.h"
 #include <chrono>
 #include <iomanip>
 #include <sstream>
 
-AuthService::AuthService(
+CardCheck::CardCheck(
     std::shared_ptr<CardRepo> cardRepo,
     std::shared_ptr<UserRepo> userRepo,
     std::shared_ptr<AccessPolicyRepo> policyRepo,
@@ -18,7 +18,7 @@ AuthService::AuthService(
       cryptoService(std::move(cryptoService)),
       maxFailedAttempts(maxFailedAttempts) {}
 
-std::string AuthService::getCurrentTimestamp() {
+std::string CardCheck::getCurrentTimestamp() {
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
 
@@ -27,12 +27,12 @@ std::string AuthService::getCurrentTimestamp() {
     return ss.str();
 }
 
-void AuthService::logEvent(const std::string& cardId, LogEventType eventType) {
+void CardCheck::logEvent(const std::string& cardId, LogEventType eventType) {
     AccessLogRecord record(getCurrentTimestamp(), cardId, eventType);
     logRepo->create(record);
 }
 
-bool AuthService::authenticate(const std::string& cardId, const std::string& pin, DayOfWeek currentDay, const std::string& currentTime) {
+bool CardCheck::authenticate(const std::string& cardId, const std::string& pin, DayOfWeek currentDay, const std::string& currentTime) {
     auto cardOpt = cardRepo->getByCardId(cardId);
     if (!cardOpt.has_value()) {
         logEvent(cardId, LogEventType::CardDoesNotExist);

@@ -21,4 +21,5 @@ public:
     void update(const User& user);
     void remove(const std::string& id);
     std::vector<User> list();
+    std::optional<User> getByUsername(const std::string& username);
 };

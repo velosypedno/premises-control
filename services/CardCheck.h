@@ -9,7 +9,7 @@
 #include "../models/AccessLogRecordRepo.h"
 #include "CryptoService.h"
 
-class AuthService {
+class CardCheck {
 private:
     std::shared_ptr<CardRepo> cardRepo;
     std::shared_ptr<UserRepo> userRepo;
@@ -23,7 +23,7 @@ private:
     void logEvent(const std::string& cardId, LogEventType eventType);
 
 public:
-    AuthService(
+    CardCheck(
         std::shared_ptr<CardRepo> cardRepo,
         std::shared_ptr<UserRepo> userRepo,
         std::shared_ptr<AccessPolicyRepo> policyRepo,
