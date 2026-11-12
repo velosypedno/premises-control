@@ -39,30 +39,24 @@ void runPolicyTests(AccessPolicyRepo& policyRepo, const User& u1, const User& u2
 void runAuthTests(CardCheck& cardCheckService, const Card& c1, const Card& c2) {
     std::cout << "\n=== CardCheck Testing ===\n";
 
-    // 1. Успішна авторизація для Максима (Пн, 10:00 - у межах робочого часу)
     std::cout << "[Test 1] Maksym correct PIN (expected ALLOWED): ";
     bool res1 = cardCheckService.authenticate(std::string(c1.getCardId()), "1111", DayOfWeek::Monday, "10:00");
     std::cout << (res1 ? "SUCCESS" : "FAILED") << '\n';
 
-    // 2. Спроба доступу у неробочий час (Пн, 20:00)
     std::cout << "[Test 2] Maksym outside working hours (expected TIME_IS_NOT_ALLOWED): ";
     bool res2 = cardCheckService.authenticate(std::string(c1.getCardId()), "1111", DayOfWeek::Monday, "20:00");
     std::cout << (res2 ? "SUCCESS" : "FAILED") << '\n';
 
-    // 3. Неправильний ПІН для Катерини (повинно збільшити failed_attempts та записати WRONG_PIN)
     std::cout << "[Test 3] Kateryna wrong PIN attempt 1 (expected WRONG_PIN): ";
     bool res3 = cardCheckService.authenticate(std::string(c2.getCardId()), "wrong_pin", DayOfWeek::Monday, "10:00");
     std::cout << (res3 ? "SUCCESS" : "FAILED") << '\n';
 
-    // 4. Перевірка блокування після перевищення ліміту (ліміт 3 спроби)
     std::cout << "[Test 4] Kateryna wrong PIN attempt 2: ";
     cardCheckService.authenticate(std::string(c2.getCardId()), "wrong_pin", DayOfWeek::Monday, "10:00");
 
     std::cout << "[Test 5] Kateryna wrong PIN attempt 3 (should trigger BLOCKED): ";
     bool res5 = cardCheckService.authenticate(std::string(c2.getCardId()), "wrong_pin", DayOfWeek::Monday, "10:00");
     std::cout << (res5 ? "SUCCESS" : "FAILED") << '\n';
-
-    // 5. Навіть з правильним пін-кодом заблокована картка не повинна пройти
     std::cout << "[Test 6] Kateryna correct PIN with BLOCKED card (expected BLOCKED): ";
     bool res6 = cardCheckService.authenticate(std::string(c2.getCardId()), "2222", DayOfWeek::Monday, "10:00");
     std::cout << (res6 ? "SUCCESS" : "FAILED") << '\n';
@@ -71,15 +65,12 @@ void runAuthTests(CardCheck& cardCheckService, const Card& c1, const Card& c2) {
 void runAdminTests(AdminCheck& adminCheck, const std::string& correctPassword) {
     std::cout << "\n=== AdminAuth (AdminCheck) Testing ===\n";
 
-    // 1. Тест успішного входу адміністратора
     bool success = adminCheck.authenticate("root", correctPassword);
     std::cout << "Root login with correct password (expected true): " << (success ? "SUCCESS" : "FAILED") << '\n';
 
-    // 2. Тест входу з невірним паролем
     bool wrongPass = adminCheck.authenticate("root", "wrong_admin_password");
     std::cout << "Root login with wrong password (expected false): " << (!wrongPass ? "SUCCESS (denied)" : "FAILED") << '\n';
 
-    // 3. Тест входу з неіснуючим юзером
     bool unknownUser = adminCheck.authenticate("hacker", correctPassword);
     std::cout << "Unknown user login (expected false): " << (!unknownUser ? "SUCCESS (denied)" : "FAILED") << '\n';
 }
@@ -93,7 +84,6 @@ void runLogTests(AccessLogRecordRepo& logRepo) {
     }
 }
 
-// 1. Процедура виконання всіх системних тестів
 void runAllTests() {
     Config config = Config::loadFromEnv();
     std::cout << "Using database: " << config.dbPath << '\n';
@@ -161,10 +151,7 @@ void runAllTests() {
 
 int main() {
     try {
-        // Крок 1: Виконання всіх системних тестів
         runAllTests();
-
-        // Крок 2: Запуск інтерактивного консольного UI
         UI::runConsoleUI();
 
     } catch (const std::exception& e) {

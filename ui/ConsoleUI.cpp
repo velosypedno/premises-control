@@ -2,6 +2,7 @@
 #include "AdminView.h"
 #include "UserView.h"
 #include "AdminDashboard.h"
+#include "UserDashboard.h"
 
 #include <iostream>
 #include <vector>
@@ -41,6 +42,14 @@ void runConsoleUI() {
         cryptoService
     );
 
+    UserDashboard userDashboard(
+        [&]() { currentScreen = 0; },
+        userRepo,
+        cardRepo,
+        policyRepo,
+        cryptoService
+    );
+
     AdminView adminView(userRepo, cryptoService, config.rootPass,
         [&]() { currentScreen = 0; },
         [&]() {
@@ -53,14 +62,19 @@ void runConsoleUI() {
         }
     );
 
-    UserView userView(cardRepo, userRepo, policyRepo, logRepo, cryptoService, [&]() {
-        currentScreen = 0;
-    });
+    UserView userView(cardRepo, userRepo, policyRepo, logRepo, cryptoService,
+        [&]() { currentScreen = 0; },
+        [&](const Card& card, const User& user) {
+            userDashboard.setCurrentSession(card, user);
+            userDashboard.resetStatus();
+            currentScreen = 4;
+        }
+    );
 
     int mainSelected = 0;
     std::vector<std::string> mainEntries = {
         "1. Admin Login (AdminCheck)",
-        "2. User Access Check (CardCheck)",
+        "2. User Login / Card Check (UserDashboard)",
         "3. Exit"
     };
     auto mainMenu = Menu(&mainEntries, &mainSelected);
@@ -98,7 +112,8 @@ void runConsoleUI() {
         mainRenderer,
         adminView.getComponent(),
         userView.getComponent(),
-        adminDashboard.getComponent()
+        adminDashboard.getComponent(),
+        userDashboard.getComponent()
     };
 
     auto container = Container::Tab(screens, &currentScreen);

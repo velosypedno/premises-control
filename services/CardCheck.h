@@ -18,6 +18,7 @@ private:
     std::shared_ptr<CryptoService> cryptoService;
 
     int maxFailedAttempts;
+    std::optional<LogEventType> lastEventType = std::nullopt;
 
     static std::string getCurrentTimestamp();
     void logEvent(const std::string& cardId, LogEventType eventType);
@@ -33,4 +34,7 @@ public:
     );
 
     bool authenticate(const std::string& cardId, const std::string& pin, DayOfWeek currentDay, const std::string& currentTime);
+
+    std::optional<LogEventType> getLastEventType() const noexcept { return lastEventType; }
+    static std::string eventTypeToMessage(LogEventType event);
 };

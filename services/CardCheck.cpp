@@ -28,8 +28,22 @@ std::string CardCheck::getCurrentTimestamp() {
 }
 
 void CardCheck::logEvent(const std::string& cardId, LogEventType eventType) {
+    lastEventType = eventType;
     AccessLogRecord record(getCurrentTimestamp(), cardId, eventType);
     logRepo->create(record);
+}
+
+std::string CardCheck::eventTypeToMessage(LogEventType event) {
+    switch (event) {
+        case LogEventType::Allowed: return "Access granted.";
+        case LogEventType::WrongPin: return "Incorrect PIN code.";
+        case LogEventType::Blocked: return "Card is blocked.";
+        case LogEventType::RevokedCard: return "Card is revoked.";
+        case LogEventType::CardDoesNotExist: return "Card does not exist.";
+        case LogEventType::PolicyNotSet: return "No access policy assigned to user.";
+        case LogEventType::TimeIsNotAllowed: return "Access denied: outside allowed schedule slot.";
+    }
+    return "Unknown event.";
 }
 
 bool CardCheck::authenticate(const std::string& cardId, const std::string& pin, DayOfWeek currentDay, const std::string& currentTime) {
