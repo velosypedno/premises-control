@@ -4,10 +4,9 @@ namespace UI {
 
 AdminView::AdminView(std::shared_ptr<UserRepo> userRepo,
                      std::shared_ptr<CryptoService> cryptoService,
-                     const std::string& rootPass,
                      std::function<void()> onBack,
                      std::function<void()> onSuccess)
-    : adminCheck(userRepo, cryptoService), rootPass(rootPass), onBack(onBack), onSuccess(onSuccess)
+    : adminCheck(userRepo, cryptoService), onBack(onBack), onSuccess(onSuccess)
 {
     using namespace ftxui;
 

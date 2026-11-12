@@ -19,16 +19,13 @@
 
 namespace UI {
 
-void runConsoleUI() {
-    Config config = Config::loadFromEnv();
-    auto db = Database::openConnection(config.dbPath);
-    auto cryptoService = std::make_shared<CryptoService>(config.salt);
-
-    auto userRepo = std::make_shared<UserRepo>(db);
-    auto cardRepo = std::make_shared<CardRepo>(db);
-    auto policyRepo = std::make_shared<AccessPolicyRepo>(db);
-    auto logRepo = std::make_shared<AccessLogRecordRepo>(db);
-
+void runConsoleUI(
+    std::shared_ptr<UserRepo> userRepo,
+    std::shared_ptr<CardRepo> cardRepo,
+    std::shared_ptr<AccessPolicyRepo> policyRepo,
+    std::shared_ptr<AccessLogRecordRepo> logRepo,
+    std::shared_ptr<CryptoService> cryptoService
+) {
     using namespace ftxui;
 
     int currentScreen = 0;
@@ -50,7 +47,7 @@ void runConsoleUI() {
         cryptoService
     );
 
-    AdminView adminView(userRepo, cryptoService, config.rootPass,
+    AdminView adminView(userRepo, cryptoService,
         [&]() { currentScreen = 0; },
         [&]() {
             auto userOpt = userRepo->getByUsername(adminView.getUsername());

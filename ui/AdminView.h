@@ -16,7 +16,6 @@ namespace UI {
         std::string statusMessage = "Enter administrator credentials.";
 
         AdminCheck adminCheck;
-        std::string rootPass;
         std::function<void()> onBack;
         std::function<void()> onSuccess;
 
@@ -25,7 +24,6 @@ namespace UI {
     public:
         AdminView(std::shared_ptr<UserRepo> userRepo,
                   std::shared_ptr<CryptoService> cryptoService,
-                  const std::string& rootPass,
                   std::function<void()> onBack,
                   std::function<void()> onSuccess);
 
