@@ -3,3 +3,5 @@ cmake-build-debug
 .env
 app.db
 compile_commands.json
+
+verify_plan.db

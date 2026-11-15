@@ -4,10 +4,27 @@ project(premises_control)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-find_package(SQLite3 REQUIRED)
-find_package(OpenSSL REQUIRED)
-
 include(FetchContent)
+
+cmake_policy(SET CMP0135 NEW)
+cmake_policy(SET CMP0169 OLD)
+FetchContent_Declare(
+  sqlite_amalgamation
+  URL https://www.sqlite.org/2024/sqlite-amalgamation-3460100.zip
+  URL_HASH SHA256=77823cb110929c2bcb0f5d48e4833b5c59a8a6e40cdea3936b99e199dbbe5784
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_GetProperties(sqlite_amalgamation)
+if(NOT sqlite_amalgamation_POPULATED)
+  FetchContent_Populate(sqlite_amalgamation)
+endif()
+
+add_library(sqlite3_amalg STATIC
+  ${sqlite_amalgamation_SOURCE_DIR}/sqlite3.c
+)
+target_include_directories(sqlite3_amalg PUBLIC ${sqlite_amalgamation_SOURCE_DIR})
+target_compile_definitions(sqlite3_amalg PUBLIC SQLITE_THREADSAFE=1)
+
 FetchContent_Declare(
   ftxui
   GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI
@@ -76,10 +93,27 @@ add_executable(premises_control
         )
 
 target_link_libraries(premises_control PRIVATE
-        SQLite3::SQLite3
-        OpenSSL::SSL
-        OpenSSL::Crypto
+        sqlite3_amalg
         ftxui::screen
         ftxui::dom
         ftxui::component
 )
+
+add_executable(verify_plan
+        verify_plan.cpp
+        models/User.cpp
+        models/UserRepo.cpp
+        models/uuid.cpp
+        models/Card.cpp
+        models/CardRepo.cpp
+        models/AccessPolicy.cpp
+        models/AccessPolicyRepo.cpp
+        infra/Database.cpp
+        infra/Config.cpp
+        models/AccessLogRecord.cpp
+        models/AccessLogRecordRepo.cpp
+        services/CardCheck.cpp
+        services/AdminCheck.cpp
+        services/CryptoService.cpp
+)
+target_link_libraries(verify_plan PRIVATE sqlite3_amalg)
