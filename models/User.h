@@ -18,6 +18,7 @@ private:
     UserRole role;
     std::optional<std::string> username;
     std::optional<std::string> passwordHash;
+    bool active = true;
 
 public:
     User() = default;
@@ -28,14 +29,16 @@ public:
          std::optional<std::string> policyId,
          UserRole role,
          std::optional<std::string> username = std::nullopt,
-         std::optional<std::string> passwordHash = std::nullopt);
+         std::optional<std::string> passwordHash = std::nullopt,
+         bool active = true);
 
     User(std::string firstName,
          std::string lastName,
          std::optional<std::string> policyId = std::nullopt,
          UserRole role = UserRole::User,
          std::optional<std::string> username = std::nullopt,
-         std::optional<std::string> passwordHash = std::nullopt);
+         std::optional<std::string> passwordHash = std::nullopt,
+         bool active = true);
 
     User(const User&) = default;
     User& operator=(const User&) = default;
@@ -52,6 +55,7 @@ public:
     const std::optional<std::string>& getPolicyIdOpt() const noexcept;
 
     UserRole getRole() const noexcept;
+    bool isActive() const noexcept;
 
     std::optional<std::string_view> getUsername() const noexcept;
     const std::optional<std::string>& getUsernameOpt() const noexcept;
@@ -65,6 +69,7 @@ public:
     void setLastName(std::string newLastName);
     void setPolicyId(std::optional<std::string> newPolicyId);
     void setRole(UserRole newRole) noexcept;
+    void setActive(bool newActive) noexcept;
     void setUsername(std::optional<std::string> newUsername);
     void setPasswordHash(std::optional<std::string> newPasswordHash);
 

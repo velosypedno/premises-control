@@ -34,6 +34,7 @@ public:
     );
 
     bool authenticate(const std::string& cardId, const std::string& pin, DayOfWeek currentDay, const std::string& currentTime);
+    void logCancellation(const std::string& cardId);
 
     std::optional<LogEventType> getLastEventType() const noexcept { return lastEventType; }
     static std::string eventTypeToMessage(LogEventType event);

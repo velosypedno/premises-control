@@ -26,11 +26,19 @@ User UserRepo::extractUser(sqlite3_stmt* stmt) {
         passwordHash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 6));
     }
 
-    return User(std::move(id), std::move(firstName), std::move(lastName), std::move(policyId), role, std::move(username), std::move(passwordHash));
+    bool active = true;
+    if (sqlite3_column_count(stmt) > 7 && sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
+        active = sqlite3_column_int(stmt, 7) != 0;
+    }
+
+    return User(std::move(id), std::move(firstName), std::move(lastName), std::move(policyId),
+                role, std::move(username), std::move(passwordHash), active);
 }
 
 void UserRepo::create(const User& user) {
-    const char* sql = "INSERT INTO users (id, first_name, last_name, policy_id, role, username, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?);";
+    const char* sql =
+        "INSERT INTO users (id, first_name, last_name, policy_id, role, username, password_hash, active) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
     sqlite3_stmt* stmt = nullptr;
 
     if (sqlite3_prepare_v2(db.get(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -65,6 +73,8 @@ void UserRepo::create(const User& user) {
         sqlite3_bind_null(stmt, 7);
     }
 
+    sqlite3_bind_int(stmt, 8, user.isActive() ? 1 : 0);
+
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         sqlite3_finalize(stmt);
         throw std::runtime_error(sqlite3_errmsg(db.get()));
@@ -74,7 +84,9 @@ void UserRepo::create(const User& user) {
 }
 
 std::optional<User> UserRepo::getById(const std::string& id) {
-    const char* sql = "SELECT id, first_name, last_name, policy_id, role, username, password_hash FROM users WHERE id = ?;";
+    const char* sql =
+        "SELECT id, first_name, last_name, policy_id, role, username, password_hash, active "
+        "FROM users WHERE id = ?;";
     sqlite3_stmt* stmt = nullptr;
 
     if (sqlite3_prepare_v2(db.get(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -93,7 +105,9 @@ std::optional<User> UserRepo::getById(const std::string& id) {
 }
 
 void UserRepo::update(const User& user) {
-    const char* sql = "UPDATE users SET first_name = ?, last_name = ?, policy_id = ?, role = ?, username = ?, password_hash = ? WHERE id = ?;";
+    const char* sql =
+        "UPDATE users SET first_name = ?, last_name = ?, policy_id = ?, role = ?, "
+        "username = ?, password_hash = ?, active = ? WHERE id = ?;";
     sqlite3_stmt* stmt = nullptr;
 
     if (sqlite3_prepare_v2(db.get(), sql, -1, &stmt, nullptr) != SQLITE_OK) {
@@ -127,7 +141,8 @@ void UserRepo::update(const User& user) {
         sqlite3_bind_null(stmt, 6);
     }
 
-    sqlite3_bind_text(stmt, 7, user.getId().data(), -1, SQLITE_TRANSIENT);
+    sqlite3_bind_int(stmt, 7, user.isActive() ? 1 : 0);
+    sqlite3_bind_text(stmt, 8, user.getId().data(), -1, SQLITE_TRANSIENT);
 
     if (sqlite3_step(stmt) != SQLITE_DONE) {
         sqlite3_finalize(stmt);
@@ -156,7 +171,8 @@ void UserRepo::remove(const std::string& id) {
 }
 
 std::vector<User> UserRepo::list() {
-    const char* sql = "SELECT id, first_name, last_name, policy_id, role, username, password_hash FROM users;";
+    const char* sql =
+        "SELECT id, first_name, last_name, policy_id, role, username, password_hash, active FROM users;";
     sqlite3_stmt* stmt = nullptr;
     std::vector<User> users;
 
@@ -173,7 +189,9 @@ std::vector<User> UserRepo::list() {
 }
 
 std::optional<User> UserRepo::getByUsername(const std::string& username) {
-    const char* sql = "SELECT id, first_name, last_name, policy_id, role, username, password_hash FROM users WHERE username = ?;";
+    const char* sql =
+        "SELECT id, first_name, last_name, policy_id, role, username, password_hash, active "
+        "FROM users WHERE username = ?;";
     sqlite3_stmt* stmt = nullptr;
 
     if (sqlite3_prepare_v2(db.get(), sql, -1, &stmt, nullptr) != SQLITE_OK) {

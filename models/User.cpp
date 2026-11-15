@@ -4,17 +4,20 @@
 User::User(std::string id, std::string firstName,
     std::string lastName, std::optional<std::string> policyId,
     UserRole role, std::optional<std::string> username,
-    std::optional<std::string> passwordHash)
+    std::optional<std::string> passwordHash, bool active)
     : id(std::move(id)), firstName(std::move(firstName)),
     lastName(std::move(lastName)), policyId(std::move(policyId)),
-    role(role), username(std::move(username)), passwordHash(std::move(passwordHash)) {}
+    role(role), username(std::move(username)), passwordHash(std::move(passwordHash)),
+    active(active) {}
 
 User::User(std::string firstName, std::string lastName,
     std::optional<std::string> policyId, UserRole role,
-    std::optional<std::string> username, std::optional<std::string> passwordHash)
+    std::optional<std::string> username, std::optional<std::string> passwordHash,
+    bool active)
     : id(uuid::generate()), firstName(std::move(firstName)),
     lastName(std::move(lastName)), policyId(std::move(policyId)),
-    role(role), username(std::move(username)), passwordHash(std::move(passwordHash)) {}
+    role(role), username(std::move(username)), passwordHash(std::move(passwordHash)),
+    active(active) {}
 
 std::string_view User::getId() const noexcept {
     return id;
@@ -41,6 +44,10 @@ const std::optional<std::string>& User::getPolicyIdOpt() const noexcept {
 
 UserRole User::getRole() const noexcept {
     return role;
+}
+
+bool User::isActive() const noexcept {
+    return active;
 }
 
 std::optional<std::string_view> User::getUsername() const noexcept {
@@ -88,6 +95,10 @@ void User::setPolicyId(std::optional<std::string> newPolicyId) {
 
 void User::setRole(UserRole newRole) noexcept {
     role = newRole;
+}
+
+void User::setActive(bool newActive) noexcept {
+    active = newActive;
 }
 
 void User::setUsername(std::optional<std::string> newUsername) {

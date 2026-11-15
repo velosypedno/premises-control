@@ -49,6 +49,46 @@ void Database::initializeSchema(sqlite3* db, const std::string& schemaPath) {
     std::cout << "Schema successfully initialized from file: " << schemaPath << '\n';
 }
 
+void Database::ensureMigrations(sqlite3* db) {
+    bool hasActive = false;
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, "PRAGMA table_info(users);", -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char* name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            if (name && std::string(name) == "active") {
+                hasActive = true;
+                break;
+            }
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    if (!hasActive) {
+        char* errMsg = nullptr;
+        if (sqlite3_exec(db, "ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1;",
+                         nullptr, nullptr, &errMsg) != SQLITE_OK) {
+            std::string error(errMsg ? errMsg : "Unknown SQL error");
+            sqlite3_free(errMsg);
+            throw std::runtime_error("Migration error (users.active): " + error);
+        }
+        std::cout << "Migration applied: users.active column added.\n";
+    }
+}
+
+bool Database::isEmpty(sqlite3* db) {
+    sqlite3_stmt* stmt = nullptr;
+    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM users;", -1, &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error(sqlite3_errmsg(db));
+    }
+
+    int count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        count = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+    return count == 0;
+}
+
 void Database::clear(sqlite3* db) {
     char* errMsg = nullptr;
     const char* clearSql =
@@ -71,9 +111,9 @@ void Database::initializeRootAdmin(sqlite3* db, const std::string& passwordHash)
     std::string rootId = uuid::generate();
 
     const char* sql =
-        "INSERT INTO users (id, first_name, last_name, policy_id, role, username, password_hash) "
-        "VALUES (?, 'Root', 'Admin', NULL, 'ADMIN', 'root', ?) "
-        "ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash;";
+        "INSERT INTO users (id, first_name, last_name, policy_id, role, username, password_hash, active) "
+        "VALUES (?, 'Root', 'Admin', NULL, 'ADMIN', 'root', ?, 1) "
+        "ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash, active = 1;";
 
     sqlite3_stmt* stmt = nullptr;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {

@@ -2,6 +2,7 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <stdexcept>
 
 CardCheck::CardCheck(
     std::shared_ptr<CardRepo> cardRepo,
@@ -33,85 +34,120 @@ void CardCheck::logEvent(const std::string& cardId, LogEventType eventType) {
     logRepo->create(record);
 }
 
+void CardCheck::logCancellation(const std::string& cardId) {
+    try {
+        std::string id = cardId.empty() ? "-" : cardId;
+        logEvent(id, LogEventType::Cancelled);
+    } catch (...) {
+        lastEventType = LogEventType::Cancelled;
+    }
+}
+
 std::string CardCheck::eventTypeToMessage(LogEventType event) {
     switch (event) {
-        case LogEventType::Allowed: return "Access granted.";
-        case LogEventType::WrongPin: return "Incorrect PIN code.";
-        case LogEventType::Blocked: return "Card is blocked.";
-        case LogEventType::RevokedCard: return "Card is revoked.";
-        case LogEventType::CardDoesNotExist: return "Card does not exist.";
-        case LogEventType::PolicyNotSet: return "No access policy assigned to user.";
-        case LogEventType::TimeIsNotAllowed: return "Access denied: outside allowed schedule slot.";
+        case LogEventType::Allowed: return "Доступ дозволено. Двері відкрито [симуляція].";
+        case LogEventType::WrongPin: return "Хибний PIN.";
+        case LogEventType::Blocked: return "Картка заблокована.";
+        case LogEventType::Alarm: return "Блокування і тривога.";
+        case LogEventType::Cancelled: return "Введення скасовано.";
+        case LogEventType::RevokedCard: return "Картку відкликано.";
+        case LogEventType::CardDoesNotExist: return "Невідома картка.";
+        case LogEventType::PolicyNotSet: return "Розклад доступу не призначено.";
+        case LogEventType::TimeIsNotAllowed: return "Поза дозволеним розкладом.";
+        case LogEventType::DayIsNotAllowed: return "День не дозволено розкладом.";
+        case LogEventType::UserInactive: return "Користувач неактивний.";
+        case LogEventType::PersistFailed: return "Помилка збереження стану.";
+        case LogEventType::CardIssued: return "Картку видано.";
+        case LogEventType::CardRevoked: return "Картку відкликано адміністратором.";
+        case LogEventType::PinChanged: return "PIN змінено.";
+        case LogEventType::CardUnlocked: return "Картку розблоковано.";
     }
-    return "Unknown event.";
+    return "Доступ відхилено.";
 }
 
 bool CardCheck::authenticate(const std::string& cardId, const std::string& pin, DayOfWeek currentDay, const std::string& currentTime) {
-    auto cardOpt = cardRepo->getByCardId(cardId);
-    if (!cardOpt.has_value()) {
-        logEvent(cardId, LogEventType::CardDoesNotExist);
-        return false;
-    }
-
-    Card card = cardOpt.value();
-
-    if (card.getStatus() == CardStatus::Revoked) {
-        logEvent(cardId, LogEventType::RevokedCard);
-        return false;
-    }
-
-    if (card.getStatus() == CardStatus::Blocked) {
-        logEvent(cardId, LogEventType::Blocked);
-        return false;
-    }
-
-    std::string inputHash = cryptoService->hashPin(pin);
-
-    if (inputHash != card.getPinHash()) {
-        card.incrementFailedAttempts();
-
-        if (card.getFailedAttempts() >= maxFailedAttempts) {
-            card.setStatus(CardStatus::Blocked);
-            cardRepo->update(card);
-            logEvent(cardId, LogEventType::Blocked);
-        } else {
-            cardRepo->update(card);
-            logEvent(cardId, LogEventType::WrongPin);
+    try {
+        auto cardOpt = cardRepo->getByCardId(cardId);
+        if (!cardOpt.has_value()) {
+            logEvent(cardId, LogEventType::CardDoesNotExist);
+            return false;
         }
+
+        Card card = cardOpt.value();
+
+        if (card.getStatus() == CardStatus::Revoked) {
+            logEvent(cardId, LogEventType::RevokedCard);
+            return false;
+        }
+
+        if (card.getStatus() == CardStatus::Blocked) {
+            logEvent(cardId, LogEventType::Blocked);
+            return false;
+        }
+
+        std::string inputHash = cryptoService->hashPin(pin);
+
+        if (inputHash != card.getPinHash()) {
+            card.incrementFailedAttempts();
+
+            if (card.getFailedAttempts() >= maxFailedAttempts) {
+                card.setStatus(CardStatus::Blocked);
+                cardRepo->update(card);
+                logEvent(cardId, LogEventType::Alarm);
+            } else {
+                cardRepo->update(card);
+                logEvent(cardId, LogEventType::WrongPin);
+            }
+            return false;
+        }
+
+        if (card.getFailedAttempts() > 0) {
+            card.resetFailedAttempts();
+            cardRepo->update(card);
+        }
+
+        auto userOpt = userRepo->getById(std::string(card.getUserId()));
+        if (!userOpt.has_value()) {
+            logEvent(cardId, LogEventType::CardDoesNotExist);
+            return false;
+        }
+
+        User user = userOpt.value();
+        if (!user.isActive()) {
+            logEvent(cardId, LogEventType::UserInactive);
+            return false;
+        }
+
+        const auto& policyIdOpt = user.getPolicyIdOpt();
+        if (!policyIdOpt.has_value()) {
+            logEvent(cardId, LogEventType::PolicyNotSet);
+            return false;
+        }
+
+        auto policyOpt = policyRepo->getById(policyIdOpt.value());
+        if (!policyOpt.has_value()) {
+            logEvent(cardId, LogEventType::PolicyNotSet);
+            return false;
+        }
+
+        AccessPolicy policy = policyOpt.value();
+
+        if (!policy.isAllowed(currentDay, currentTime)) {
+            bool dayHasWindow = false;
+            for (const auto& window : policy.getWindows()) {
+                if (window.getDay() == currentDay) {
+                    dayHasWindow = true;
+                    break;
+                }
+            }
+            logEvent(cardId, dayHasWindow ? LogEventType::TimeIsNotAllowed : LogEventType::DayIsNotAllowed);
+            return false;
+        }
+
+        logEvent(cardId, LogEventType::Allowed);
+        return true;
+    } catch (const std::exception&) {
+        lastEventType = LogEventType::PersistFailed;
         return false;
     }
-
-    if (card.getFailedAttempts() > 0) {
-        card.resetFailedAttempts();
-        cardRepo->update(card);
-    }
-
-    auto userOpt = userRepo->getById(std::string(card.getUserId()));
-    if (!userOpt.has_value()) {
-        logEvent(cardId, LogEventType::CardDoesNotExist);
-        return false;
-    }
-
-    User user = userOpt.value();
-    const auto& policyIdOpt = user.getPolicyIdOpt();
-    if (!policyIdOpt.has_value()) {
-        logEvent(cardId, LogEventType::PolicyNotSet);
-        return false;
-    }
-
-    auto policyOpt = policyRepo->getById(policyIdOpt.value());
-    if (!policyOpt.has_value()) {
-        logEvent(cardId, LogEventType::PolicyNotSet);
-        return false;
-    }
-
-    AccessPolicy policy = policyOpt.value();
-
-    if (!policy.isAllowed(currentDay, currentTime)) {
-        logEvent(cardId, LogEventType::TimeIsNotAllowed);
-        return false;
-    }
-
-    logEvent(cardId, LogEventType::Allowed);
-    return true;
 }

@@ -8,10 +8,18 @@ enum class LogEventType {
     WrongPin,
     RevokedCard,
     Blocked,
+    Alarm,
+    Cancelled,
     CardDoesNotExist,
     TimeIsNotAllowed,
     DayIsNotAllowed,
-    PolicyNotSet
+    PolicyNotSet,
+    UserInactive,
+    PersistFailed,
+    CardIssued,
+    CardRevoked,
+    PinChanged,
+    CardUnlocked
 };
 
 class AccessLogRecord {
