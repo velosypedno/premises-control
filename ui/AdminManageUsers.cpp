@@ -21,6 +21,8 @@ void AdminManageUsers::reset() {
     assignPolicyUserId_.clear();
     assignPolicyId_.clear();
     assignPolicyStatus_ = "Enter User ID and Policy ID to assign.";
+    toggleActiveUserId_.clear();
+    toggleActiveStatus_ = "Enter User ID to toggle active flag.";
 }
 
 AdminManageUsers::AdminManageUsers(
@@ -38,7 +40,7 @@ AdminManageUsers::AdminManageUsers(
     auto subMenuHandler = CatchEvent(subMenu_, [this](Event event) {
         if (event == Event::Return) {
             int sel = subSel_;
-            if (sel == 4) {
+            if (sel == 5) {
                 if (onBack_) onBack_();
             } else {
                 innerScreen_ = sel + 1;
@@ -76,7 +78,7 @@ AdminManageUsers::AdminManageUsers(
         Elements rows;
         rows.push_back(text("=== LIST ALL USERS ===") | bold | color(Color::Green) | center);
         rows.push_back(separator());
-        rows.push_back(text("ID | Name | Role | Username | PolicyID") | bold);
+        rows.push_back(text("ID | Name | Role | Active | Username | PolicyID") | bold);
         rows.push_back(separator());
         try {
             auto users = userRepo_->list();
@@ -88,6 +90,7 @@ AdminManageUsers::AdminManageUsers(
                         std::string(u.getId()) + " | " +
                         u.getFullName() + " | " +
                         User::roleToString(u.getRole()) + " | " +
+                        (u.isActive() ? "YES" : "NO") + " | " +
                         (u.getUsernameOpt().has_value() ? std::string(*u.getUsernameOpt()) : "(none)") + " | " +
                         (u.getPolicyIdOpt().has_value() ? std::string(*u.getPolicyIdOpt()) : "(none)");
                     rows.push_back(text(line));
@@ -299,12 +302,70 @@ AdminManageUsers::AdminManageUsers(
         }) | border | size(WIDTH, GREATER_THAN, 60);
     });
 
+    toggleActiveInput_ = Input(&toggleActiveUserId_, "User ID");
+    toggleActiveMenu_ = Menu(&toggleActiveActions_, &toggleActiveActionSel_);
+    auto toggleActiveContainer = Container::Vertical({toggleActiveInput_, toggleActiveMenu_});
+
+    auto toggleActiveHandler = CatchEvent(toggleActiveContainer, [this](Event event) {
+        if (event == Event::Return) {
+            if (toggleActiveMenu_->Focused() && toggleActiveActionSel_ == 1) {
+                innerScreen_ = 0;
+                return true;
+            }
+            if ((toggleActiveMenu_->Focused() && toggleActiveActionSel_ == 0) || !toggleActiveMenu_->Focused()) {
+                if (toggleActiveUserId_.empty()) {
+                    toggleActiveStatus_ = "[Error] User ID cannot be empty.";
+                    return true;
+                }
+                try {
+                    auto userOpt = userRepo_->getById(toggleActiveUserId_);
+                    if (!userOpt.has_value()) {
+                        toggleActiveStatus_ = "[Error] User not found.";
+                        return true;
+                    }
+                    User u = *userOpt;
+                    u.setActive(!u.isActive());
+                    userRepo_->update(u);
+                    toggleActiveStatus_ = std::string("[Success] User is now ") +
+                                          (u.isActive() ? "ACTIVE." : "INACTIVE.");
+                    toggleActiveUserId_.clear();
+                } catch (const std::exception& e) {
+                    toggleActiveStatus_ = std::string("[Error] ") + e.what();
+                }
+                return true;
+            }
+        }
+        if (event == Event::Escape) {
+            innerScreen_ = 0;
+            return true;
+        }
+        return false;
+    });
+
+    auto toggleActiveRenderer = Renderer(toggleActiveHandler, [this]() {
+        auto statusCol = (toggleActiveStatus_.rfind("[Success]", 0) == 0) ? Color::Green :
+                         (toggleActiveStatus_.rfind("[Error]", 0) == 0) ? Color::Red : Color::Yellow;
+        return vbox({
+            text("=== TOGGLE USER ACTIVE ===") | bold | color(Color::Green) | center,
+            separator(),
+            text("User ID:"),
+            toggleActiveInput_->Render() | border,
+            separator(),
+            toggleActiveMenu_->Render() | border,
+            separator(),
+            text(toggleActiveStatus_) | color(statusCol) | center,
+            separator(),
+            text("[Esc] Back") | dim | center,
+        }) | border | size(WIDTH, GREATER_THAN, 60);
+    });
+
     tabContainer_ = Container::Tab({
         subMenuRenderer,
         listRenderer,
         createRenderer,
         assignRoleRenderer,
         assignPolicyRenderer,
+        toggleActiveRenderer,
     }, &innerScreen_);
 
     component_ = tabContainer_;

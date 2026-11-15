@@ -55,7 +55,7 @@ AdminDashboard::AdminDashboard(
 
     editProfile_ = std::make_shared<AdminEditProfile>(userRepo_, cryptoService_, &currentUser_, goBack);
     manageUsers_ = std::make_shared<AdminManageUsers>(userRepo_, policyRepo_, cryptoService_, goBack);
-    manageCards_ = std::make_shared<AdminManageCards>(cardRepo_, userRepo_, cryptoService_, goBack);
+    manageCards_ = std::make_shared<AdminManageCards>(cardRepo_, userRepo_, logRepo_, cryptoService_, goBack);
     managePolicies_ = std::make_shared<AdminManagePolicies>(policyRepo_, userRepo_, goBack);
     accessLog_ = std::make_shared<AdminAccessLog>(logRepo_, goBack);
 

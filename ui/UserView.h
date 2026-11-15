@@ -32,7 +32,7 @@ private:
         "Sunday (SUN)"
     };
     bool useSystemTime = false;
-    std::string statusMessage = "Enter card ID and PIN to authenticate.";
+    std::string statusMessage = "Введіть номер картки та PIN.";
 
     std::shared_ptr<CardRepo> cardRepo_;
     std::shared_ptr<UserRepo> userRepo_;
@@ -63,7 +63,7 @@ public:
     ftxui::Component getComponent() { return component; }
 
     void resetStatus() {
-        statusMessage = "Enter card ID and PIN to authenticate.";
+        statusMessage = "Введіть номер картки та PIN.";
         cardIdInput = "";
         cardPinInput = "";
         timeInput = "10:00";

@@ -6,6 +6,7 @@
 #include "ftxui/component/component.hpp"
 #include "../models/CardRepo.h"
 #include "../models/UserRepo.h"
+#include "../models/AccessLogRecordRepo.h"
 #include "../services/CryptoService.h"
 
 namespace UI {
@@ -15,6 +16,7 @@ public:
     AdminManageCards(
         std::shared_ptr<CardRepo> cardRepo,
         std::shared_ptr<UserRepo> userRepo,
+        std::shared_ptr<AccessLogRecordRepo> logRepo,
         std::shared_ptr<CryptoService> cryptoService,
         std::function<void()> onBack
     );
@@ -26,8 +28,11 @@ private:
 
     std::shared_ptr<CardRepo> cardRepo_;
     std::shared_ptr<UserRepo> userRepo_;
+    std::shared_ptr<AccessLogRecordRepo> logRepo_;
     std::shared_ptr<CryptoService> cryptoService_;
     std::function<void()> onBack_;
+
+    void logAdminEvent(const std::string& cardId, LogEventType type);
 
     int innerScreen_ = 0;
 
@@ -38,6 +43,8 @@ private:
         "Add Card to User",
         "Block Card",
         "Unblock Card",
+        "Revoke Card",
+        "Change PIN",
         "Back"
     };
     ftxui::Component subMenu_;
@@ -74,6 +81,27 @@ private:
     std::vector<std::string> unblockActions_ = {"Unblock Card", "Back"};
     ftxui::Component unblockCardInput_;
     ftxui::Component unblockMenu_;
+
+    // Revoke Card
+    std::string revokeCardNum_;
+    std::string revokeStatus_ = "Enter card number to revoke.";
+    bool revokeConfirmPending_ = false;
+    int revokeActionSel_ = 0;
+    std::vector<std::string> revokeActions_ = {"Revoke Card", "Back"};
+    std::vector<std::string> revokeConfirmActions_ = {"Confirm Revoke", "Cancel"};
+    ftxui::Component revokeCardInput_;
+    ftxui::Component revokeMenu_;
+    ftxui::Component revokeConfirmMenu_;
+
+    // Change PIN
+    std::string changePinCardNum_;
+    std::string changePinNew_;
+    std::string changePinStatus_ = "Enter card number and new PIN.";
+    int changePinActionSel_ = 0;
+    std::vector<std::string> changePinActions_ = {"Change PIN", "Back"};
+    ftxui::Component changePinCardInput_;
+    ftxui::Component changePinInput_;
+    ftxui::Component changePinMenu_;
 
     ftxui::Component tabContainer_;
 };

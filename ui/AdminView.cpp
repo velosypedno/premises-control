@@ -3,54 +3,61 @@
 namespace UI {
 
 AdminView::AdminView(std::shared_ptr<UserRepo> userRepo,
+                     std::shared_ptr<CardRepo> cardRepo,
                      std::shared_ptr<CryptoService> cryptoService,
                      std::function<void()> onBack,
-                     std::function<void()> onSuccess)
-    : adminCheck(userRepo, cryptoService), onBack(onBack), onSuccess(onSuccess)
+                     std::function<void(const User&)> onSuccess)
+    : adminCheck(userRepo, cardRepo, cryptoService), onBack(onBack), onSuccess(onSuccess)
 {
     using namespace ftxui;
 
     InputOption passwordOption;
     passwordOption.password = true;
 
-    auto userBox = Input(&username, "Username");
-    auto passBox = Input(&password, "Password", passwordOption);
+    auto cardBox = Input(&cardIdInput, "Card ID (16 digits)");
+    auto pinBox = Input(&pinInput, "PIN", passwordOption);
 
     auto container = Container::Vertical({
-        userBox,
-        passBox,
+        cardBox,
+        pinBox,
     });
 
-    auto eventHandler = CatchEvent(container, [this, onBack, onSuccess](Event event) {
+    auto eventHandler = CatchEvent(container, [this](Event event) {
         if (event == Event::Return) {
-            bool ok = adminCheck.authenticate(username, password);
-            if (ok) {
+            if (cardIdInput.empty() || pinInput.empty()) {
+                statusMessage = "[Error]: Enter both card number and PIN.";
+                return true;
+            }
+
+            auto userOpt = adminCheck.authenticateByCard(cardIdInput, pinInput);
+            if (userOpt.has_value()) {
+                authenticatedUser_ = userOpt;
                 statusMessage = "[Success]: Administrator authenticated!";
-                if (onSuccess) {
-                    onSuccess();
+                if (this->onSuccess) {
+                    this->onSuccess(*userOpt);
                 }
             } else {
-                statusMessage = "[Error]: Invalid username or password!";
+                statusMessage = "[Error]: Admin access denied (need ADMIN role card + PIN).";
             }
             return true;
         }
         if (event == Event::Escape) {
-            if (onBack) {
-                onBack();
+            if (this->onBack) {
+                this->onBack();
             }
             return true;
         }
         return false;
     });
 
-    component = Renderer(eventHandler, [this, userBox, passBox] {
+    component = Renderer(eventHandler, [this, cardBox, pinBox] {
         Elements children;
-        children.push_back(text("=== PANEL: ADMIN LOGIN ===") | bold | color(Color::Red) | center);
+        children.push_back(text("=== РЕЖИМ АДМІНІСТРАТОРА ===") | bold | color(Color::Red) | center);
         children.push_back(separator());
-        children.push_back(text("Username:"));
-        children.push_back(userBox->Render() | border);
-        children.push_back(text("Password:"));
-        children.push_back(passBox->Render() | border);
+        children.push_back(text("Card ID:"));
+        children.push_back(cardBox->Render() | border);
+        children.push_back(text("PIN:"));
+        children.push_back(pinBox->Render() | border);
         children.push_back(separator());
         children.push_back(text("[Enter] - Login  |  [Esc] - Back") | dim | center);
         children.push_back(separator());

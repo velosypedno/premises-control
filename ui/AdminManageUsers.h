@@ -39,6 +39,7 @@ private:
         "Create New User",
         "Assign Admin Role",
         "Assign Policy to User",
+        "Toggle User Active",
         "Back"
     };
     ftxui::Component subMenu_;
@@ -79,6 +80,14 @@ private:
     ftxui::Component assignPolicyUserInput_;
     ftxui::Component assignPolicyInput_;
     ftxui::Component assignPolicyMenu_;
+
+    // Toggle Active
+    std::string toggleActiveUserId_;
+    std::string toggleActiveStatus_ = "Enter User ID to toggle active flag.";
+    int toggleActiveActionSel_ = 0;
+    std::vector<std::string> toggleActiveActions_ = {"Toggle Active", "Back"};
+    ftxui::Component toggleActiveInput_;
+    ftxui::Component toggleActiveMenu_;
 
     ftxui::Component tabContainer_;
 };

@@ -1,12 +1,34 @@
 #include "AdminManageCards.h"
 #include "ftxui/component/component.hpp"
 #include "ftxui/dom/elements.hpp"
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 #include <string>
 #include <vector>
 
 using namespace ftxui;
 
 namespace UI {
+
+namespace {
+std::string nowTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto t = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S");
+    return ss.str();
+}
+} // namespace
+
+void AdminManageCards::logAdminEvent(const std::string& cardId, LogEventType type) {
+    if (!logRepo_) return;
+    try {
+        AccessLogRecord record(nowTimestamp(), cardId, type);
+        logRepo_->create(record);
+    } catch (...) {
+    }
+}
 
 void AdminManageCards::reset() {
     innerScreen_ = 0;
@@ -19,15 +41,23 @@ void AdminManageCards::reset() {
     blockStatus_ = "Enter card number to block.";
     unblockCardNum_.clear();
     unblockStatus_ = "Enter card number to unblock.";
+    revokeCardNum_.clear();
+    revokeStatus_ = "Enter card number to revoke.";
+    revokeConfirmPending_ = false;
+    changePinCardNum_.clear();
+    changePinNew_.clear();
+    changePinStatus_ = "Enter card number and new PIN.";
 }
 
 AdminManageCards::AdminManageCards(
     std::shared_ptr<CardRepo> cardRepo,
     std::shared_ptr<UserRepo> userRepo,
+    std::shared_ptr<AccessLogRecordRepo> logRepo,
     std::shared_ptr<CryptoService> cryptoService,
     std::function<void()> onBack
 ) : cardRepo_(cardRepo),
     userRepo_(userRepo),
+    logRepo_(logRepo),
     cryptoService_(cryptoService),
     onBack_(onBack) {
 
@@ -36,7 +66,7 @@ AdminManageCards::AdminManageCards(
     auto subMenuHandler = CatchEvent(subMenu_, [this](Event event) {
         if (event == Event::Return) {
             int sel = subSel_;
-            if (sel == 4) {
+            if (sel == 6) {
                 if (onBack_) onBack_();
             } else {
                 innerScreen_ = sel + 1;
@@ -126,9 +156,19 @@ AdminManageCards::AdminManageCards(
                     return true;
                 }
                 try {
+                    if (cardRepo_->getByCardId(addCardNum_).has_value()) {
+                        addStatus_ = "[Error] Card number already exists.";
+                        return true;
+                    }
+                    auto userOpt = userRepo_->getById(addUserId_);
+                    if (!userOpt.has_value()) {
+                        addStatus_ = "[Error] User not found.";
+                        return true;
+                    }
                     std::string hash = cryptoService_->hashPin(addPin_);
                     Card card(addUserId_, addCardNum_, hash);
                     cardRepo_->create(card);
+                    logAdminEvent(addCardNum_, LogEventType::CardIssued);
                     addStatus_ = "[Success] Card added.";
                     addUserId_.clear();
                     addCardNum_.clear();
@@ -248,6 +288,7 @@ AdminManageCards::AdminManageCards(
                     c.setStatus(CardStatus::Active);
                     c.resetFailedAttempts();
                     cardRepo_->update(c);
+                    logAdminEvent(unblockCardNum_, LogEventType::CardUnlocked);
                     unblockStatus_ = "[Success] Card unblocked and failed attempts reset.";
                     unblockCardNum_.clear();
                 } catch (const std::exception& e) {
@@ -280,12 +321,163 @@ AdminManageCards::AdminManageCards(
         }) | border | size(WIDTH, GREATER_THAN, 60);
     });
 
+    revokeCardInput_ = Input(&revokeCardNum_, "Card Number");
+    revokeMenu_ = Menu(&revokeActions_, &revokeActionSel_);
+    revokeConfirmMenu_ = Menu(&revokeConfirmActions_, &revokeActionSel_);
+    auto revokeContainer = Container::Vertical({revokeCardInput_, revokeMenu_, revokeConfirmMenu_});
+
+    auto revokeHandler = CatchEvent(revokeContainer, [this](Event event) {
+        if (event == Event::Return) {
+            if (!revokeConfirmPending_) {
+                if (revokeMenu_->Focused() && revokeActionSel_ == 1) {
+                    innerScreen_ = 0;
+                    return true;
+                }
+                if ((revokeMenu_->Focused() && revokeActionSel_ == 0) || !revokeMenu_->Focused()) {
+                    if (revokeCardNum_.empty()) {
+                        revokeStatus_ = "[Error] Card number cannot be empty.";
+                        return true;
+                    }
+                    auto cardOpt = cardRepo_->getByCardId(revokeCardNum_);
+                    if (!cardOpt.has_value()) {
+                        revokeStatus_ = "[Error] Card not found.";
+                        return true;
+                    }
+                    revokeConfirmPending_ = true;
+                    revokeActionSel_ = 0;
+                    revokeStatus_ = "Confirm revoke for " + revokeCardNum_ + "?";
+                    return true;
+                }
+            } else {
+                if (revokeActionSel_ == 1) {
+                    revokeConfirmPending_ = false;
+                    revokeStatus_ = "Revoke cancelled.";
+                    return true;
+                }
+                try {
+                    auto cardOpt = cardRepo_->getByCardId(revokeCardNum_);
+                    if (!cardOpt.has_value()) {
+                        revokeStatus_ = "[Error] Card not found.";
+                        revokeConfirmPending_ = false;
+                        return true;
+                    }
+                    Card c = *cardOpt;
+                    c.setStatus(CardStatus::Revoked);
+                    cardRepo_->update(c);
+                    logAdminEvent(revokeCardNum_, LogEventType::CardRevoked);
+                    revokeStatus_ = "[Success] Card revoked.";
+                    revokeCardNum_.clear();
+                    revokeConfirmPending_ = false;
+                } catch (const std::exception& e) {
+                    revokeStatus_ = std::string("[Error] ") + e.what();
+                    revokeConfirmPending_ = false;
+                }
+                return true;
+            }
+        }
+        if (event == Event::Escape) {
+            if (revokeConfirmPending_) {
+                revokeConfirmPending_ = false;
+                revokeStatus_ = "Enter card number to revoke.";
+                return true;
+            }
+            innerScreen_ = 0;
+            return true;
+        }
+        return false;
+    });
+
+    auto revokeRenderer = Renderer(revokeHandler, [this]() {
+        auto statusCol = (revokeStatus_.rfind("[Success]", 0) == 0) ? Color::Green :
+                         (revokeStatus_.rfind("[Error]", 0) == 0) ? Color::Red : Color::Yellow;
+        Elements children;
+        children.push_back(text("=== REVOKE CARD ===") | bold | color(Color::Green) | center);
+        children.push_back(separator());
+        children.push_back(text("Card Number:"));
+        children.push_back(revokeCardInput_->Render() | border);
+        children.push_back(separator());
+        if (revokeConfirmPending_) {
+            children.push_back(text("Підтвердіть відкликання картки:") | bold | color(Color::Red));
+            children.push_back(revokeConfirmMenu_->Render() | border);
+        } else {
+            children.push_back(revokeMenu_->Render() | border);
+        }
+        children.push_back(separator());
+        children.push_back(text(revokeStatus_) | color(statusCol) | center);
+        children.push_back(separator());
+        children.push_back(text("[Esc] Back") | dim | center);
+        return vbox(std::move(children)) | border | size(WIDTH, GREATER_THAN, 60);
+    });
+
+    changePinCardInput_ = Input(&changePinCardNum_, "Card Number");
+    changePinInput_ = Input(&changePinNew_, "New PIN", pinOpt);
+    changePinMenu_ = Menu(&changePinActions_, &changePinActionSel_);
+    auto changePinContainer = Container::Vertical({changePinCardInput_, changePinInput_, changePinMenu_});
+
+    auto changePinHandler = CatchEvent(changePinContainer, [this](Event event) {
+        if (event == Event::Return) {
+            if (changePinMenu_->Focused() && changePinActionSel_ == 1) {
+                innerScreen_ = 0;
+                return true;
+            }
+            if ((changePinMenu_->Focused() && changePinActionSel_ == 0) || !changePinMenu_->Focused()) {
+                if (changePinCardNum_.empty() || changePinNew_.empty()) {
+                    changePinStatus_ = "[Error] Card number and new PIN are required.";
+                    return true;
+                }
+                try {
+                    auto cardOpt = cardRepo_->getByCardId(changePinCardNum_);
+                    if (!cardOpt.has_value()) {
+                        changePinStatus_ = "[Error] Card not found.";
+                        return true;
+                    }
+                    Card c = *cardOpt;
+                    c.setPinHash(cryptoService_->hashPin(changePinNew_));
+                    cardRepo_->update(c);
+                    logAdminEvent(changePinCardNum_, LogEventType::PinChanged);
+                    changePinStatus_ = "[Success] PIN changed.";
+                    changePinCardNum_.clear();
+                    changePinNew_.clear();
+                } catch (const std::exception& e) {
+                    changePinStatus_ = std::string("[Error] ") + e.what();
+                }
+                return true;
+            }
+        }
+        if (event == Event::Escape) {
+            innerScreen_ = 0;
+            return true;
+        }
+        return false;
+    });
+
+    auto changePinRenderer = Renderer(changePinHandler, [this]() {
+        auto statusCol = (changePinStatus_.rfind("[Success]", 0) == 0) ? Color::Green :
+                         (changePinStatus_.rfind("[Error]", 0) == 0) ? Color::Red : Color::Yellow;
+        return vbox({
+            text("=== CHANGE CARD PIN ===") | bold | color(Color::Green) | center,
+            separator(),
+            text("Card Number:"),
+            changePinCardInput_->Render() | border,
+            text("New PIN:"),
+            changePinInput_->Render() | border,
+            separator(),
+            changePinMenu_->Render() | border,
+            separator(),
+            text(changePinStatus_) | color(statusCol) | center,
+            separator(),
+            text("[Esc] Back") | dim | center,
+        }) | border | size(WIDTH, GREATER_THAN, 60);
+    });
+
     tabContainer_ = Container::Tab({
         subMenuRenderer,
         listRenderer,
         addRenderer,
         blockRenderer,
         unblockRenderer,
+        revokeRenderer,
+        changePinRenderer,
     }, &innerScreen_);
 
     component_ = tabContainer_;

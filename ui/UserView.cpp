@@ -78,43 +78,32 @@ UserView::UserView(std::shared_ptr<CardRepo> cardRepo,
                 checkTime = timeInput;
             }
 
-            // Execute authentication and access slot verification using CardCheck service!
             bool ok = cardCheckService_.authenticate(cardIdInput, cardPinInput, checkDay, checkTime);
 
             if (ok) {
                 auto cardOpt = cardRepo_->getByCardId(cardIdInput);
                 auto userOpt = userRepo_->getById(std::string(cardOpt->getUserId()));
-                statusMessage = "[Success]: Access Granted by CardCheck!";
+                statusMessage = "Доступ дозволено. Двері відкрито [симуляція].";
                 if (onSuccess_ && cardOpt && userOpt) {
                     onSuccess_(*cardOpt, *userOpt);
                 }
             } else {
                 auto lastEv = cardCheckService_.getLastEventType();
                 if (lastEv.has_value()) {
-                    if (*lastEv == LogEventType::TimeIsNotAllowed) {
-                        statusMessage = "[Access Denied]: Outside allowed policy schedule slot (" +
-                                        AccessWindow::dayToString(checkDay) + " " + checkTime + ")!";
-                    } else if (*lastEv == LogEventType::WrongPin) {
-                        statusMessage = "[Access Denied]: Incorrect PIN code!";
-                    } else if (*lastEv == LogEventType::Blocked) {
-                        statusMessage = "[Access Denied]: Card is BLOCKED (maximum failed attempts reached)!";
-                    } else if (*lastEv == LogEventType::RevokedCard) {
-                        statusMessage = "[Access Denied]: Card has been REVOKED!";
-                    } else if (*lastEv == LogEventType::CardDoesNotExist) {
-                        statusMessage = "[Access Denied]: Card does not exist in the system!";
-                    } else if (*lastEv == LogEventType::PolicyNotSet) {
-                        statusMessage = "[Access Denied]: No Access Policy is assigned to this user!";
+                    if (*lastEv == LogEventType::PersistFailed) {
+                        statusMessage = "Помилка збереження. Доступ не надано.";
                     } else {
-                        statusMessage = "[Access Denied]: " + CardCheck::eventTypeToMessage(*lastEv);
+                        statusMessage = "Доступ відхилено. " + CardCheck::eventTypeToMessage(*lastEv);
                     }
                 } else {
-                    statusMessage = "[Access Denied]: CardCheck authentication failed.";
+                    statusMessage = "Доступ відхилено.";
                 }
             }
             return true;
         }
 
         if (event == Event::Escape) {
+            cardCheckService_.logCancellation(cardIdInput);
             if (onBack_) {
                 onBack_();
             }
@@ -124,11 +113,13 @@ UserView::UserView(std::shared_ptr<CardRepo> cardRepo,
     });
 
     component = Renderer(eventHandler, [this] {
-        auto statusCol = (statusMessage.rfind("[Success]", 0) == 0) ? Color::Green :
-                         (statusMessage.rfind("[Access Denied]", 0) == 0 || statusMessage.rfind("[Error]", 0) == 0) ? Color::Red : Color::Yellow;
+        auto statusCol = (statusMessage.find("Доступ дозволено") != std::string::npos) ? Color::Green :
+                         (statusMessage.find("Доступ відхилено") != std::string::npos ||
+                          statusMessage.find("Помилка") != std::string::npos ||
+                          statusMessage.rfind("[Error]", 0) == 0) ? Color::Red : Color::Yellow;
 
         Elements children;
-        children.push_back(text("=== PANEL: USER LOGIN (CARDCHECK VERIFICATION) ===") | bold | color(Color::Blue) | center);
+        children.push_back(text("=== СПРОБА ВХОДУ ===") | bold | color(Color::Blue) | center);
         children.push_back(separator());
 
         children.push_back(text("Card ID:"));
@@ -138,7 +129,7 @@ UserView::UserView(std::shared_ptr<CardRepo> cardRepo,
         children.push_back(cardPinBox_->Render() | border);
 
         children.push_back(separatorLight());
-        children.push_back(text("Access Schedule Slot Verification (CardCheck):") | bold);
+        children.push_back(text("Перевірка розкладу:") | bold);
         children.push_back(systemTimeCheckbox_->Render());
 
         if (!useSystemTime) {
@@ -153,7 +144,7 @@ UserView::UserView(std::shared_ptr<CardRepo> cardRepo,
         }
 
         children.push_back(separator());
-        children.push_back(text("[Enter] - Authenticate & Enter Dashboard  |  [Esc] - Back") | dim | center);
+        children.push_back(text("[Enter] - Спроба входу  |  [Esc] - Скасувати") | dim | center);
         children.push_back(separator());
         children.push_back(text(statusMessage) | color(statusCol) | center);
 

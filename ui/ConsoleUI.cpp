@@ -47,13 +47,10 @@ void runConsoleUI(
         cryptoService
     );
 
-    AdminView adminView(userRepo, cryptoService,
+    AdminView adminView(userRepo, cardRepo, cryptoService,
         [&]() { currentScreen = 0; },
-        [&]() {
-            auto userOpt = userRepo->getByUsername(adminView.getUsername());
-            if (userOpt) {
-                adminDashboard.setCurrentUser(*userOpt);
-            }
+        [&](const User& user) {
+            adminDashboard.setCurrentUser(user);
             adminDashboard.resetStatus();
             currentScreen = 3;
         }
@@ -70,23 +67,23 @@ void runConsoleUI(
 
     int mainSelected = 0;
     std::vector<std::string> mainEntries = {
-        "1. Admin Login (AdminCheck)",
-        "2. User Login / Card Check (UserDashboard)",
-        "3. Exit"
+        "1. Спроба входу",
+        "2. Режим адміністратора",
+        "0. Вихід"
     };
     auto mainMenu = Menu(&mainEntries, &mainSelected);
     auto screen = ScreenInteractive::TerminalOutput();
 
-    std::string mainStatus = "Use Arrow keys to navigate and Enter to select.";
+    std::string mainStatus = "Оберіть дію (стрілки + Enter).";
 
     auto mainComponent = CatchEvent(mainMenu, [&](Event event) {
         if (event == Event::Return) {
             if (mainSelected == 0) {
-                currentScreen = 1;
-                adminView.resetStatus();
-            } else if (mainSelected == 1) {
                 currentScreen = 2;
                 userView.resetStatus();
+            } else if (mainSelected == 1) {
+                currentScreen = 1;
+                adminView.resetStatus();
             } else if (mainSelected == 2) {
                 screen.Exit();
             }
@@ -97,7 +94,7 @@ void runConsoleUI(
 
     auto mainRenderer = Renderer(mainComponent, [&] {
         Elements children;
-        children.push_back(text("=== PREMISES CONTROL SYSTEM ===") | bold | color(Color::Cyan) | center);
+        children.push_back(text("ТЕРМІНАЛ КОНТРОЛЮ ДОСТУПУ") | bold | color(Color::Cyan) | center);
         children.push_back(separator());
         children.push_back(mainMenu->Render() | border | color(Color::Green));
         children.push_back(separator());
