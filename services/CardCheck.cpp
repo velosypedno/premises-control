@@ -1,8 +1,75 @@
 #include "CardCheck.h"
 #include <chrono>
+#include <ctime>
+#include <cstdio>
 #include <iomanip>
 #include <sstream>
-#include <stdexcept>
+
+namespace {
+
+std::string formatCurrentTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t in_time_t = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %H:%M:%S");
+    return ss.str();
+}
+
+std::pair<DayOfWeek, std::string> getCurrentDayAndTime() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t t = std::chrono::system_clock::to_time_t(now);
+    std::tm tm = *std::localtime(&t);
+
+    DayOfWeek day;
+    switch (tm.tm_wday) {
+        case 1: day = DayOfWeek::Monday; break;
+        case 2: day = DayOfWeek::Tuesday; break;
+        case 3: day = DayOfWeek::Wednesday; break;
+        case 4: day = DayOfWeek::Thursday; break;
+        case 5: day = DayOfWeek::Friday; break;
+        case 6: day = DayOfWeek::Saturday; break;
+        case 0:
+        default: day = DayOfWeek::Sunday; break;
+    }
+
+    char buf[6];
+    std::snprintf(buf, sizeof(buf), "%02d:%02d", tm.tm_hour, tm.tm_min);
+    return {day, std::string(buf)};
+}
+
+LogEventType toLogEvent(AuthError err) {
+    switch (err) {
+        case AuthError::WrongPin:         return LogEventType::WrongPin;
+        case AuthError::Blocked:          return LogEventType::Blocked;
+        case AuthError::Alarm:            return LogEventType::Alarm;
+        case AuthError::RevokedCard:      return LogEventType::RevokedCard;
+        case AuthError::CardDoesNotExist: return LogEventType::CardDoesNotExist;
+        case AuthError::PolicyNotSet:     return LogEventType::PolicyNotSet;
+        case AuthError::TimeIsNotAllowed: return LogEventType::TimeIsNotAllowed;
+        case AuthError::DayIsNotAllowed:  return LogEventType::DayIsNotAllowed;
+        case AuthError::UserInactive:     return LogEventType::UserInactive;
+        case AuthError::PersistFailed:    return LogEventType::PersistFailed;
+    }
+    return LogEventType::PersistFailed;
+}
+
+}
+
+std::string toErrorMessage(AuthError err) {
+    switch (err) {
+        case AuthError::WrongPin:         return "Incorrect PIN.";
+        case AuthError::Blocked:          return "Card is blocked.";
+        case AuthError::Alarm:            return "Lockdown and alarm triggered.";
+        case AuthError::RevokedCard:      return "Card has been revoked.";
+        case AuthError::CardDoesNotExist: return "Unknown card.";
+        case AuthError::PolicyNotSet:     return "Access schedule is not assigned.";
+        case AuthError::TimeIsNotAllowed: return "Outside allowed schedule hours.";
+        case AuthError::DayIsNotAllowed:  return "Day is not permitted by schedule.";
+        case AuthError::UserInactive:     return "User is inactive.";
+        case AuthError::PersistFailed:    return "Failed to persist state.";
+    }
+    return "Access denied.";
+}
 
 CardCheck::CardCheck(
     std::shared_ptr<CardRepo> cardRepo,
@@ -12,142 +79,110 @@ CardCheck::CardCheck(
     std::shared_ptr<CryptoService> cryptoService,
     int maxFailedAttempts
 )
-    : cardRepo(std::move(cardRepo)),
-      userRepo(std::move(userRepo)),
-      policyRepo(std::move(policyRepo)),
-      logRepo(std::move(logRepo)),
-      cryptoService(std::move(cryptoService)),
-      maxFailedAttempts(maxFailedAttempts) {}
+    : cardRepo_(std::move(cardRepo)),
+      userRepo_(std::move(userRepo)),
+      policyRepo_(std::move(policyRepo)),
+      logRepo_(std::move(logRepo)),
+      cryptoService_(std::move(cryptoService)),
+      maxFailedAttempts_(maxFailedAttempts) {}
 
-std::string CardCheck::getCurrentTimestamp() {
-    auto now = std::chrono::system_clock::now();
-    auto in_time_t = std::chrono::system_clock::to_time_t(now);
-
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %H:%M:%S");
-    return ss.str();
+void CardCheck::recordAudit(const std::string& cardId, LogEventType eventType) const {
+    AccessLogRecord record(formatCurrentTimestamp(), cardId, eventType);
+    logRepo_->create(record);
 }
 
-void CardCheck::logEvent(const std::string& cardId, LogEventType eventType) {
-    lastEventType = eventType;
-    AccessLogRecord record(getCurrentTimestamp(), cardId, eventType);
-    logRepo->create(record);
-}
-
-void CardCheck::logCancellation(const std::string& cardId) {
+void CardCheck::logCancellation(const std::string& cardId) const {
     try {
-        std::string id = cardId.empty() ? "-" : cardId;
-        logEvent(id, LogEventType::Cancelled);
+        recordAudit(cardId.empty() ? "-" : cardId, LogEventType::Cancelled);
     } catch (...) {
-        lastEventType = LogEventType::Cancelled;
+        // Best-effort audit logging on UI exit
     }
 }
 
-std::string CardCheck::eventTypeToMessage(LogEventType event) {
-    switch (event) {
-        case LogEventType::Allowed: return "Access granted. Door unlocked [simulation].";
-        case LogEventType::WrongPin: return "Incorrect PIN.";
-        case LogEventType::Blocked: return "Card is blocked.";
-        case LogEventType::Alarm: return "Lockdown and alarm triggered.";
-        case LogEventType::Cancelled: return "Input cancelled.";
-        case LogEventType::RevokedCard: return "Card has been revoked.";
-        case LogEventType::CardDoesNotExist: return "Unknown card.";
-        case LogEventType::PolicyNotSet: return "Access schedule is not assigned.";
-        case LogEventType::TimeIsNotAllowed: return "Outside allowed schedule hours.";
-        case LogEventType::DayIsNotAllowed: return "Day is not permitted by schedule.";
-        case LogEventType::UserInactive: return "User is inactive.";
-        case LogEventType::PersistFailed: return "Failed to persist state.";
-        case LogEventType::CardIssued: return "Card issued.";
-        case LogEventType::CardRevoked: return "Card revoked by administrator.";
-        case LogEventType::PinChanged: return "PIN changed.";
-        case LogEventType::CardUnlocked: return "Card unlocked.";
-    }
-    return "Access denied.";
+Services::Result<AuthSuccess, AuthError> CardCheck::authenticate(
+    const std::string& cardId,
+    const std::string& pin
+) const {
+    auto [day, time] = getCurrentDayAndTime();
+    return authenticate(cardId, pin, day, time);
 }
 
-bool CardCheck::authenticate(const std::string& cardId, const std::string& pin, DayOfWeek currentDay, const std::string& currentTime) {
+Services::Result<AuthSuccess, AuthError> CardCheck::authenticate(
+    const std::string& cardId,
+    const std::string& pin,
+    DayOfWeek day,
+    const std::string& time
+) const {
+    auto fail = [&](AuthError err) -> Services::Result<AuthSuccess, AuthError> {
+        recordAudit(cardId, toLogEvent(err));
+        return Services::Err(err);
+    };
+
     try {
-        auto cardOpt = cardRepo->getByCardId(cardId);
+        auto cardOpt = cardRepo_->getByCardId(cardId);
         if (!cardOpt.has_value()) {
-            logEvent(cardId, LogEventType::CardDoesNotExist);
-            return false;
+            return fail(AuthError::CardDoesNotExist);
         }
 
-        Card card = cardOpt.value();
+        Card card = std::move(*cardOpt);
 
         if (card.getStatus() == CardStatus::Revoked) {
-            logEvent(cardId, LogEventType::RevokedCard);
-            return false;
+            return fail(AuthError::RevokedCard);
         }
-
         if (card.getStatus() == CardStatus::Blocked) {
-            logEvent(cardId, LogEventType::Blocked);
-            return false;
+            return fail(AuthError::Blocked);
         }
 
-        std::string inputHash = cryptoService->hashPin(pin);
-
-        if (inputHash != card.getPinHash()) {
+        if (cryptoService_->hashPin(pin) != card.getPinHash()) {
             card.incrementFailedAttempts();
-
-            if (card.getFailedAttempts() >= maxFailedAttempts) {
+            if (card.getFailedAttempts() >= maxFailedAttempts_) {
                 card.setStatus(CardStatus::Blocked);
-                cardRepo->update(card);
-                logEvent(cardId, LogEventType::Alarm);
-            } else {
-                cardRepo->update(card);
-                logEvent(cardId, LogEventType::WrongPin);
+                cardRepo_->update(card);
+                return fail(AuthError::Alarm);
             }
-            return false;
+            cardRepo_->update(card);
+            return fail(AuthError::WrongPin);
         }
 
         if (card.getFailedAttempts() > 0) {
             card.resetFailedAttempts();
-            cardRepo->update(card);
+            cardRepo_->update(card);
         }
 
-        auto userOpt = userRepo->getById(std::string(card.getUserId()));
+        auto userOpt = userRepo_->getById(std::string(card.getUserId()));
         if (!userOpt.has_value()) {
-            logEvent(cardId, LogEventType::CardDoesNotExist);
-            return false;
+            return fail(AuthError::CardDoesNotExist);
         }
 
-        User user = userOpt.value();
+        User user = std::move(*userOpt);
         if (!user.isActive()) {
-            logEvent(cardId, LogEventType::UserInactive);
-            return false;
+            return fail(AuthError::UserInactive);
         }
 
         const auto& policyIdOpt = user.getPolicyIdOpt();
         if (!policyIdOpt.has_value()) {
-            logEvent(cardId, LogEventType::PolicyNotSet);
-            return false;
+            return fail(AuthError::PolicyNotSet);
         }
 
-        auto policyOpt = policyRepo->getById(policyIdOpt.value());
+        auto policyOpt = policyRepo_->getById(*policyIdOpt);
         if (!policyOpt.has_value()) {
-            logEvent(cardId, LogEventType::PolicyNotSet);
-            return false;
+            return fail(AuthError::PolicyNotSet);
         }
 
-        AccessPolicy policy = policyOpt.value();
-
-        if (!policy.isAllowed(currentDay, currentTime)) {
+        if (!policyOpt->isAllowed(day, time)) {
             bool dayHasWindow = false;
-            for (const auto& window : policy.getWindows()) {
-                if (window.getDay() == currentDay) {
+            for (const auto& window : policyOpt->getWindows()) {
+                if (window.getDay() == day) {
                     dayHasWindow = true;
                     break;
                 }
             }
-            logEvent(cardId, dayHasWindow ? LogEventType::TimeIsNotAllowed : LogEventType::DayIsNotAllowed);
-            return false;
+            return fail(dayHasWindow ? AuthError::TimeIsNotAllowed : AuthError::DayIsNotAllowed);
         }
 
-        logEvent(cardId, LogEventType::Allowed);
-        return true;
+        recordAudit(cardId, LogEventType::Allowed);
+        return Services::Ok(AuthSuccess{std::move(card), std::move(user)});
     } catch (const std::exception&) {
-        lastEventType = LogEventType::PersistFailed;
-        return false;
+        return Services::Err(AuthError::PersistFailed);
     }
 }

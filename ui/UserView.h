@@ -6,8 +6,6 @@
 #include <functional>
 #include "ftxui/component/component.hpp"
 #include "../services/CardCheck.h"
-#include "../models/CardRepo.h"
-#include "../models/UserRepo.h"
 #include "../models/User.h"
 #include "../models/Card.h"
 
@@ -15,10 +13,10 @@ namespace UI {
 
 class UserView {
 private:
-    std::string cardIdInput = "";
-    std::string cardPinInput = "";
+    std::string cardIdInput;
+    std::string cardPinInput;
     std::string timeInput = "10:00";
-    int daySelected = 0; // Monday
+    int daySelected = 0;
     std::vector<std::string> dayEntries = {
         "Monday (MON)",
         "Tuesday (TUE)",
@@ -32,9 +30,6 @@ private:
     std::string statusMessage = "Enter card number and PIN.";
 
     std::shared_ptr<CardCheck> cardCheckService_;
-    std::shared_ptr<CardRepo> cardRepo_;
-    std::shared_ptr<UserRepo> userRepo_;
-
     std::function<void()> onBack_;
     std::function<void(const Card&, const User&)> onSuccess_;
 
@@ -43,27 +38,23 @@ private:
     ftxui::Component dayDropdown_;
     ftxui::Component timeBox_;
     ftxui::Component systemTimeCheckbox_;
-    ftxui::Component component;
+    ftxui::Component component_;
 
 public:
     UserView(std::shared_ptr<CardCheck> cardCheck,
-             std::shared_ptr<CardRepo> cardRepo,
-             std::shared_ptr<UserRepo> userRepo,
              std::function<void()> onBack,
              std::function<void(const Card&, const User&)> onSuccess = nullptr);
 
-    ftxui::Component getComponent() { return component; }
+    ftxui::Component getComponent() { return component_; }
 
     void resetStatus() {
         statusMessage = "Enter card number and PIN.";
-        cardIdInput = "";
-        cardPinInput = "";
+        cardIdInput.clear();
+        cardPinInput.clear();
         timeInput = "10:00";
         daySelected = 0;
         useSystemTime = false;
     }
-
-    CardCheck& getCardCheckService() { return *cardCheckService_; }
 };
 
 }

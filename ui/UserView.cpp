@@ -1,7 +1,4 @@
 #include "UserView.h"
-#include <chrono>
-#include <ctime>
-#include <cstdio>
 #include <cctype>
 
 namespace UI {
@@ -22,15 +19,11 @@ bool isValidHHMM(const std::string& t) {
 }
 
 UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
-                   std::shared_ptr<CardRepo> cardRepo,
-                   std::shared_ptr<UserRepo> userRepo,
                    std::function<void()> onBack,
                    std::function<void(const Card&, const User&)> onSuccess)
     : cardCheckService_(std::move(cardCheck)),
-      cardRepo_(std::move(cardRepo)),
-      userRepo_(std::move(userRepo)),
-      onBack_(onBack),
-      onSuccess_(onSuccess)
+      onBack_(std::move(onBack)),
+      onSuccess_(std::move(onSuccess))
 {
     using namespace ftxui;
 
@@ -49,60 +42,40 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
             return;
         }
 
-        DayOfWeek checkDay;
-        std::string checkTime;
-
-        if (useSystemTime) {
-            auto now = std::chrono::system_clock::now();
-            std::time_t t = std::chrono::system_clock::to_time_t(now);
-            std::tm tm = *std::localtime(&t);
-
-            switch (tm.tm_wday) {
-                case 1: checkDay = DayOfWeek::Monday; break;
-                case 2: checkDay = DayOfWeek::Tuesday; break;
-                case 3: checkDay = DayOfWeek::Wednesday; break;
-                case 4: checkDay = DayOfWeek::Thursday; break;
-                case 5: checkDay = DayOfWeek::Friday; break;
-                case 6: checkDay = DayOfWeek::Saturday; break;
-                case 0:
-                default: checkDay = DayOfWeek::Sunday; break;
+        auto result = [&]() -> Services::Result<AuthSuccess, AuthError> {
+            if (useSystemTime) {
+                return cardCheckService_->authenticate(cardIdInput, cardPinInput);
             }
-
-            char buf[6];
-            std::snprintf(buf, sizeof(buf), "%02d:%02d", tm.tm_hour, tm.tm_min);
-            checkTime = std::string(buf);
-        } else {
             if (daySelected < 0 || daySelected >= static_cast<int>(dayEntries.size())) {
-                statusMessage = "[Error]: Invalid day selected.";
-                return;
+                return Services::Err(AuthError::DayIsNotAllowed);
             }
             if (!isValidHHMM(timeInput)) {
                 statusMessage = "[Error]: Time must be in HH:MM format (00:00-23:59).";
-                return;
+                return Services::Err(AuthError::TimeIsNotAllowed);
             }
-            checkDay = static_cast<DayOfWeek>(daySelected);
-            checkTime = timeInput;
+            return cardCheckService_->authenticate(
+                cardIdInput,
+                cardPinInput,
+                static_cast<DayOfWeek>(daySelected),
+                timeInput
+            );
+        }();
+
+        if (!useSystemTime && !isValidHHMM(timeInput)) {
+            return;
         }
 
-        bool ok = cardCheckService_->authenticate(cardIdInput, cardPinInput, checkDay, checkTime);
-
-        if (ok) {
-            auto cardOpt = cardRepo_->getByCardId(cardIdInput);
-            auto userOpt = userRepo_->getById(std::string(cardOpt->getUserId()));
+        if (result.is_ok()) {
+            const auto& auth = result.value();
             statusMessage = "Access granted. Door unlocked [simulation].";
-            if (onSuccess_ && cardOpt && userOpt) {
-                onSuccess_(*cardOpt, *userOpt);
+            if (onSuccess_) {
+                onSuccess_(auth.card, auth.user);
             }
         } else {
-            auto lastEv = cardCheckService_->getLastEventType();
-            if (lastEv.has_value()) {
-                if (*lastEv == LogEventType::PersistFailed) {
-                    statusMessage = "Failed to save state. Access denied.";
-                } else {
-                    statusMessage = "Access denied. " + CardCheck::eventTypeToMessage(*lastEv);
-                }
+            if (result.error() == AuthError::PersistFailed) {
+                statusMessage = "Failed to save state. Access denied.";
             } else {
-                statusMessage = "Access denied.";
+                statusMessage = "Access denied. " + toErrorMessage(result.error());
             }
         }
     };
@@ -144,7 +117,7 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
         return false;
     });
 
-    component = Renderer(eventHandler, [this, slotRow, loginButton] {
+    component_ = Renderer(eventHandler, [this, loginButton] {
         auto statusCol = (statusMessage.find("Access granted") != std::string::npos) ? Color::Green :
                          (statusMessage.find("Access denied") != std::string::npos ||
                           statusMessage.find("Failed") != std::string::npos ||

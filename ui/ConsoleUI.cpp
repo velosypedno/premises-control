@@ -47,7 +47,7 @@ void runConsoleUI(const AppDependencies& deps) {
         }
     );
 
-    UserView userView(deps.cardCheck, deps.cardRepo, deps.userRepo,
+    UserView userView(deps.cardCheck,
         [&]() { currentScreen = 0; },
         [&](const Card& card, const User& user) {
             userDashboard.setCurrentSession(card, user);

@@ -71,13 +71,17 @@ int main() {
     CardCheck check(cardRepo, userRepo, policyRepo, logRepo, crypto, 3);
     AdminCheck adminCheck(userRepo, cardRepo, crypto);
 
-    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00"),
-          "1. Successful access");
-    CHECK(check.getLastEventType() == LogEventType::Allowed, "1. Allowed event");
+    {
+        auto res = check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00");
+        CHECK(res.is_ok(), "1. Successful access");
+        CHECK(res.is_ok() && res.value().user.getId() == user.getId(), "1. Returned authenticated user");
+    }
 
-    CHECK(!check.authenticate("9999999999999999", "0000", DayOfWeek::Monday, "12:00"),
-          "2. Unknown card denied");
-    CHECK(check.getLastEventType() == LogEventType::CardDoesNotExist, "2. Unknown card event");
+    {
+        auto res = check.authenticate("9999999999999999", "0000", DayOfWeek::Monday, "12:00");
+        CHECK(res.is_err(), "2. Unknown card denied");
+        CHECK(res.is_err() && res.error() == AuthError::CardDoesNotExist, "2. Unknown card event");
+    }
 
     {
         auto c = cardRepo->getByCardId("1234567890123456").value();
@@ -85,12 +89,14 @@ int main() {
         c.setStatus(CardStatus::Active);
         cardRepo->update(c);
     }
-    CHECK(!check.authenticate("1234567890123456", "9999", DayOfWeek::Monday, "12:00"),
-          "3. Wrong PIN denied");
-    CHECK(check.getLastEventType() == LogEventType::WrongPin, "3. WrongPin event");
-    CHECK(cardRepo->getByCardId("1234567890123456")->getFailedAttempts() == 1, "3. fail counter = 1");
+    {
+        auto res = check.authenticate("1234567890123456", "9999", DayOfWeek::Monday, "12:00");
+        CHECK(res.is_err(), "3. Wrong PIN denied");
+        CHECK(res.is_err() && res.error() == AuthError::WrongPin, "3. WrongPin event");
+        CHECK(cardRepo->getByCardId("1234567890123456")->getFailedAttempts() == 1, "3. fail counter = 1");
+    }
 
-    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00"),
+    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00").is_ok(),
           "5. Correct PIN after fails");
     CHECK(cardRepo->getByCardId("1234567890123456")->getFailedAttempts() == 0, "5. counter reset to 0");
 
@@ -100,14 +106,19 @@ int main() {
         c.setStatus(CardStatus::Active);
         cardRepo->update(c);
     }
-    CHECK(!check.authenticate("1234567890123456", "0001", DayOfWeek::Monday, "12:00"), "4a. fail 1");
-    CHECK(!check.authenticate("1234567890123456", "0002", DayOfWeek::Monday, "12:00"), "4b. fail 2");
-    CHECK(!check.authenticate("1234567890123456", "0003", DayOfWeek::Monday, "12:00"), "4c. fail 3");
-    CHECK(check.getLastEventType() == LogEventType::Alarm, "4. Alarm on third fail");
+    CHECK(check.authenticate("1234567890123456", "0001", DayOfWeek::Monday, "12:00").is_err(), "4a. fail 1");
+    CHECK(check.authenticate("1234567890123456", "0002", DayOfWeek::Monday, "12:00").is_err(), "4b. fail 2");
+    {
+        auto res = check.authenticate("1234567890123456", "0003", DayOfWeek::Monday, "12:00");
+        CHECK(res.is_err(), "4c. fail 3");
+        CHECK(res.is_err() && res.error() == AuthError::Alarm, "4. Alarm on third fail");
+    }
     CHECK(cardRepo->getByCardId("1234567890123456")->getStatus() == CardStatus::Blocked, "4. card BLOCKED");
-    CHECK(!check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00"),
-          "4. correct PIN does not unlock blocked");
-    CHECK(check.getLastEventType() == LogEventType::Blocked, "4. still Blocked event");
+    {
+        auto res = check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00");
+        CHECK(res.is_err(), "4. correct PIN does not unlock blocked");
+        CHECK(res.is_err() && res.error() == AuthError::Blocked, "4. still Blocked event");
+    }
 
     {
         auto c = cardRepo->getByCardId("1234567890123456").value();
@@ -115,14 +126,14 @@ int main() {
         c.resetFailedAttempts();
         cardRepo->update(c);
     }
-    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00"),
+    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00").is_ok(),
           "10. access after unlock");
 
-    CHECK(!check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "08:59"), "6. 08:59 denied");
-    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "09:00"), "6. 09:00 allowed");
-    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "17:59"), "6. 17:59 allowed");
-    CHECK(!check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "18:00"), "6. 18:00 denied");
-    CHECK(!check.authenticate("1234567890123456", "1111", DayOfWeek::Saturday, "12:00"), "6. Saturday denied");
+    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "08:59").is_err(), "6. 08:59 denied");
+    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "09:00").is_ok(), "6. 09:00 allowed");
+    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "17:59").is_ok(), "6. 17:59 allowed");
+    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "18:00").is_err(), "6. 18:00 denied");
+    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Saturday, "12:00").is_err(), "6. Saturday denied");
 
     {
         auto c = cardRepo->getByCardId("1234567890123456").value();
@@ -133,7 +144,16 @@ int main() {
     check.authenticate("1234567890123456", "9999", DayOfWeek::Monday, "12:00");
     int before = cardRepo->getByCardId("1234567890123456")->getFailedAttempts();
     check.logCancellation("1234567890123456");
-    CHECK(check.getLastEventType() == LogEventType::Cancelled, "7. cancel logged");
+    {
+        auto logs = logRepo->list();
+        bool hasCancelled = false;
+        for (const auto& entry : logs) {
+            if (entry.getCardId() == "1234567890123456" && entry.getEventType() == LogEventType::Cancelled) {
+                hasCancelled = true;
+            }
+        }
+        CHECK(hasCancelled, "7. cancel logged");
+    }
     CHECK(cardRepo->getByCardId("1234567890123456")->getFailedAttempts() == before,
           "7. cancel does not change counter");
 
@@ -142,9 +162,11 @@ int main() {
         c.setStatus(CardStatus::Revoked);
         cardRepo->update(c);
     }
-    CHECK(!check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00"),
-          "9. revoked card denied");
-    CHECK(check.getLastEventType() == LogEventType::RevokedCard, "9. RevokedCard event");
+    {
+        auto res = check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00");
+        CHECK(res.is_err(), "9. revoked card denied");
+        CHECK(res.is_err() && res.error() == AuthError::RevokedCard, "9. RevokedCard event");
+    }
 
     {
         auto c = cardRepo->getByCardId("1234567890123456").value();
@@ -158,9 +180,9 @@ int main() {
         c.setPinHash(crypto->hashPin("5555"));
         cardRepo->update(c);
     }
-    CHECK(!check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00"),
+    CHECK(check.authenticate("1234567890123456", "1111", DayOfWeek::Monday, "12:00").is_err(),
           "11. old PIN rejected");
-    CHECK(check.authenticate("1234567890123456", "5555", DayOfWeek::Monday, "12:00"),
+    CHECK(check.authenticate("1234567890123456", "5555", DayOfWeek::Monday, "12:00").is_ok(),
           "11. new PIN accepted");
 
     CHECK(adminCheck.authenticateByCard("0000000000000001", "0000").has_value(),
@@ -180,9 +202,11 @@ int main() {
         c.setPinHash(crypto->hashPin("5555"));
         cardRepo->update(c);
     }
-    CHECK(!check.authenticate("1234567890123456", "5555", DayOfWeek::Monday, "12:00"),
-          "active=false denied");
-    CHECK(check.getLastEventType() == LogEventType::UserInactive, "UserInactive event");
+    {
+        auto res = check.authenticate("1234567890123456", "5555", DayOfWeek::Monday, "12:00");
+        CHECK(res.is_err(), "active=false denied");
+        CHECK(res.is_err() && res.error() == AuthError::UserInactive, "UserInactive event");
+    }
 
     {
         auto u = userRepo->getById(std::string(user.getId())).value();
@@ -206,17 +230,22 @@ int main() {
     logRepo = std::make_shared<AccessLogRecordRepo>(db);
     CardCheck check2(cardRepo, userRepo, policyRepo, logRepo, crypto, 3);
     CHECK(cardRepo->getByCardId("1234567890123456")->getFailedAttempts() == 2, "13b. counter restored");
-    CHECK(!check2.authenticate("1234567890123456", "0003", DayOfWeek::Monday, "12:00"), "13c. third fail");
-    CHECK(check2.getLastEventType() == LogEventType::Alarm, "13d. alarm after restart");
+    {
+        auto res = check2.authenticate("1234567890123456", "0003", DayOfWeek::Monday, "12:00");
+        CHECK(res.is_err(), "13c. third fail");
+        CHECK(res.is_err() && res.error() == AuthError::Alarm, "13d. alarm after restart");
+    }
     CHECK(!logRepo->list().empty(), "13e. journal preserved");
 
     User noPolicy("No", "Policy");
     userRepo->create(noPolicy);
     Card npCard(std::string(noPolicy.getId()), "2222222222222222", crypto->hashPin("1234"));
     cardRepo->create(npCard);
-    CHECK(!check2.authenticate("2222222222222222", "1234", DayOfWeek::Monday, "12:00"),
-          "no policy denied");
-    CHECK(check2.getLastEventType() == LogEventType::PolicyNotSet, "PolicyNotSet event");
+    {
+        auto res = check2.authenticate("2222222222222222", "1234", DayOfWeek::Monday, "12:00");
+        CHECK(res.is_err(), "no policy denied");
+        CHECK(res.is_err() && res.error() == AuthError::PolicyNotSet, "PolicyNotSet event");
+    }
 
     try {
         Card dup(std::string(user.getId()), "1234567890123456", crypto->hashPin("1"));
