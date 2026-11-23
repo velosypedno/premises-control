@@ -39,3 +39,5 @@ public:
     std::optional<LogEventType> getLastEventType() const noexcept { return lastEventType; }
     static std::string eventTypeToMessage(LogEventType event);
 };
+
+using CardCheckService = CardCheck;

@@ -6,10 +6,7 @@
 #include <optional>
 #include "ftxui/component/component.hpp"
 #include "../services/AdminCheck.h"
-#include "../models/UserRepo.h"
-#include "../models/CardRepo.h"
 #include "../models/User.h"
-#include "../services/CryptoService.h"
 
 namespace UI {
     class AdminView {
@@ -19,16 +16,14 @@ namespace UI {
         std::string statusMessage = "Enter ADMIN card number and PIN.";
         std::optional<User> authenticatedUser_;
 
-        AdminCheck adminCheck;
+        std::shared_ptr<AdminCheck> adminCheck_;
         std::function<void()> onBack;
         std::function<void(const User&)> onSuccess;
 
         ftxui::Component component;
 
     public:
-        AdminView(std::shared_ptr<UserRepo> userRepo,
-                  std::shared_ptr<CardRepo> cardRepo,
-                  std::shared_ptr<CryptoService> cryptoService,
+        AdminView(std::shared_ptr<AdminCheck> adminCheck,
                   std::function<void()> onBack,
                   std::function<void(const User&)> onSuccess);
 

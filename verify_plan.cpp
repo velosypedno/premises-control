@@ -14,6 +14,9 @@
 #include "services/CryptoService.h"
 #include "services/CardCheck.h"
 #include "services/AdminCheck.h"
+#include "services/Result.h"
+#include "services/UserService.h"
+#include "services/CardService.h"
 
 namespace fs = std::filesystem;
 
@@ -222,6 +225,56 @@ int main() {
     } catch (...) {
         CHECK(true, "8. duplicate card rejected");
     }
+
+    // Test UserService
+    UserService userService(userRepo, policyRepo, crypto);
+    auto createUserRes = userService.createUser("Test", "User", "testuser", "secret");
+    CHECK(createUserRes.is_ok(), "14a. UserService createUser success");
+    auto dupUserRes = userService.createUser("Test", "User", "testuser", "secret");
+    CHECK(dupUserRes.is_err() && dupUserRes.error() == Services::UserError::UsernameAlreadyTaken,
+          "14b. UserService duplicate username rejected");
+
+    std::string testUserId = std::string(createUserRes.value().getId());
+    auto updateProfRes = userService.updateProfile(testUserId, "Updated", "Name", "testuser2", "newpass");
+    CHECK(updateProfRes.is_ok(), "14c. UserService updateProfile success");
+    CHECK(userService.getUserById(testUserId).value().getFirstName() == "Updated", "14d. Updated name persisted");
+
+    auto roleRes = userService.assignAdminRole(testUserId);
+    CHECK(roleRes.is_ok(), "14e. UserService assignAdminRole success");
+    CHECK(userService.getUserById(testUserId).value().getRole() == UserRole::Admin, "14f. Admin role persisted");
+
+    auto toggleRes = userService.toggleUserActive(testUserId);
+    CHECK(toggleRes.is_ok() && !toggleRes.value(), "14g. UserService toggleUserActive to false");
+
+    // Test CardService
+    CardService cardService(cardRepo, userRepo, logRepo, crypto);
+    auto addCardRes = cardService.addCard(testUserId, "1111222233334444", "4321");
+    CHECK(addCardRes.is_ok(), "15a. CardService addCard success");
+
+    auto invalidCardRes = cardService.addCard(testUserId, "123", "4321");
+    CHECK(invalidCardRes.is_err() && invalidCardRes.error() == Services::CardError::InvalidCardFormat,
+          "15b. CardService invalid card format rejected");
+
+    auto invalidPinRes = cardService.addCard(testUserId, "5555666677778888", "12");
+    CHECK(invalidPinRes.is_err() && invalidPinRes.error() == Services::CardError::InvalidPinFormat,
+          "15c. CardService invalid PIN format rejected");
+
+    auto blockCardRes = cardService.blockCard("1111222233334444");
+    CHECK(blockCardRes.is_ok(), "15d. CardService blockCard success");
+    CHECK(cardService.getCardByNumber("1111222233334444").value().getStatus() == CardStatus::Blocked,
+          "15e. Card is Blocked");
+
+    auto unblockCardRes = cardService.unblockCard("1111222233334444");
+    CHECK(unblockCardRes.is_ok(), "15f. CardService unblockCard success");
+    CHECK(cardService.getCardByNumber("1111222233334444").value().getStatus() == CardStatus::Active,
+          "15g. Card is Active again");
+
+    auto changePinRes = cardService.changePinByUser("1111222233334444", "4321", "4321", "9999", "9999");
+    CHECK(changePinRes.is_ok(), "15h. CardService changePinByUser success");
+
+    auto wrongOldPinRes = cardService.changePinByUser("1111222233334444", "0000", "0000", "8888", "8888");
+    CHECK(wrongOldPinRes.is_err() && wrongOldPinRes.error() == Services::CardError::OldPinIncorrect,
+          "15i. CardService wrong old PIN rejected");
 
     std::cout << "\n==== " << (fails == 0 ? "ALL PASSED" : "FAILED")
               << " (" << fails << " failures) ====\n";

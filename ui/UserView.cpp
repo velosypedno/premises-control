@@ -5,19 +5,14 @@
 
 namespace UI {
 
-UserView::UserView(std::shared_ptr<CardRepo> cardRepo,
+UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
+                   std::shared_ptr<CardRepo> cardRepo,
                    std::shared_ptr<UserRepo> userRepo,
-                   std::shared_ptr<AccessPolicyRepo> policyRepo,
-                   std::shared_ptr<AccessLogRecordRepo> logRepo,
-                   std::shared_ptr<CryptoService> cryptoService,
                    std::function<void()> onBack,
                    std::function<void(const Card&, const User&)> onSuccess)
-    : cardRepo_(cardRepo),
-      userRepo_(userRepo),
-      policyRepo_(policyRepo),
-      logRepo_(logRepo),
-      cryptoService_(cryptoService),
-      cardCheckService_(cardRepo, userRepo, policyRepo, logRepo, cryptoService, 3),
+    : cardCheckService_(std::move(cardCheck)),
+      cardRepo_(std::move(cardRepo)),
+      userRepo_(std::move(userRepo)),
       onBack_(onBack),
       onSuccess_(onSuccess)
 {
@@ -78,7 +73,7 @@ UserView::UserView(std::shared_ptr<CardRepo> cardRepo,
                 checkTime = timeInput;
             }
 
-            bool ok = cardCheckService_.authenticate(cardIdInput, cardPinInput, checkDay, checkTime);
+            bool ok = cardCheckService_->authenticate(cardIdInput, cardPinInput, checkDay, checkTime);
 
             if (ok) {
                 auto cardOpt = cardRepo_->getByCardId(cardIdInput);
@@ -88,7 +83,7 @@ UserView::UserView(std::shared_ptr<CardRepo> cardRepo,
                     onSuccess_(*cardOpt, *userOpt);
                 }
             } else {
-                auto lastEv = cardCheckService_.getLastEventType();
+                auto lastEv = cardCheckService_->getLastEventType();
                 if (lastEv.has_value()) {
                     if (*lastEv == LogEventType::PersistFailed) {
                         statusMessage = "Помилка збереження. Доступ не надано.";
@@ -103,7 +98,7 @@ UserView::UserView(std::shared_ptr<CardRepo> cardRepo,
         }
 
         if (event == Event::Escape) {
-            cardCheckService_.logCancellation(cardIdInput);
+            cardCheckService_->logCancellation(cardIdInput);
             if (onBack_) {
                 onBack_();
             }

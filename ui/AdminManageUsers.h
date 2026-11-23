@@ -4,18 +4,14 @@
 #include <string>
 #include <vector>
 #include "ftxui/component/component.hpp"
-#include "../models/UserRepo.h"
-#include "../models/AccessPolicyRepo.h"
-#include "../services/CryptoService.h"
+#include "../services/UserService.h"
 
 namespace UI {
 
 class AdminManageUsers {
 public:
     AdminManageUsers(
-        std::shared_ptr<UserRepo> userRepo,
-        std::shared_ptr<AccessPolicyRepo> policyRepo,
-        std::shared_ptr<CryptoService> cryptoService,
+        std::shared_ptr<UserService> userService,
         std::function<void()> onBack
     );
     ftxui::Component getComponent() { return component_; }
@@ -24,9 +20,7 @@ public:
 private:
     ftxui::Component component_;
 
-    std::shared_ptr<UserRepo> userRepo_;
-    std::shared_ptr<AccessPolicyRepo> policyRepo_;
-    std::shared_ptr<CryptoService> cryptoService_;
+    std::shared_ptr<UserService> userService_;
     std::function<void()> onBack_;
 
     int innerScreen_ = 0;

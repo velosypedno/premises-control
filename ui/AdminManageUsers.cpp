@@ -26,14 +26,10 @@ void AdminManageUsers::reset() {
 }
 
 AdminManageUsers::AdminManageUsers(
-    std::shared_ptr<UserRepo> userRepo,
-    std::shared_ptr<AccessPolicyRepo> policyRepo,
-    std::shared_ptr<CryptoService> cryptoService,
+    std::shared_ptr<UserService> userService,
     std::function<void()> onBack
-) : userRepo_(userRepo),
-    policyRepo_(policyRepo),
-    cryptoService_(cryptoService),
-    onBack_(onBack) {
+) : userService_(std::move(userService)),
+    onBack_(std::move(onBack)) {
 
     subMenu_ = Menu(&subEntries_, &subSel_);
 
@@ -81,7 +77,7 @@ AdminManageUsers::AdminManageUsers(
         rows.push_back(text("ID | Name | Role | Active | Username | PolicyID") | bold);
         rows.push_back(separator());
         try {
-            auto users = userRepo_->list();
+            auto users = userService_->listAllUsers();
             if (users.empty()) {
                 rows.push_back(text("No users found.") | dim | center);
             } else {
@@ -130,23 +126,15 @@ AdminManageUsers::AdminManageUsers(
                 return true;
             }
             if ((createActionMenu_->Focused() && createActionSel_ == 0) || !createActionMenu_->Focused()) {
-                if (createFirstName_.empty() || createLastName_.empty() ||
-                    createUsername_.empty() || createPassword_.empty()) {
-                    createStatus_ = "[Error] All fields are required.";
-                    return true;
-                }
-                try {
-                    std::string hash = cryptoService_->hashPin(createPassword_);
-                    User newUser(createFirstName_, createLastName_, std::nullopt,
-                                 UserRole::User, createUsername_, hash);
-                    userRepo_->create(newUser);
+                auto res = userService_->createUser(createFirstName_, createLastName_, createUsername_, createPassword_);
+                if (res.is_ok()) {
                     createStatus_ = "[Success] User created.";
                     createFirstName_.clear();
                     createLastName_.clear();
                     createUsername_.clear();
                     createPassword_.clear();
-                } catch (const std::exception& e) {
-                    createStatus_ = std::string("[Error] ") + e.what();
+                } else {
+                    createStatus_ = "[Error] " + Services::toErrorMessage(res.error());
                 }
                 return true;
             }
@@ -192,23 +180,12 @@ AdminManageUsers::AdminManageUsers(
                 return true;
             }
             if ((assignRoleMenu_->Focused() && assignRoleActionSel_ == 0) || !assignRoleMenu_->Focused()) {
-                if (assignRoleUserId_.empty()) {
-                    assignRoleStatus_ = "[Error] User ID cannot be empty.";
-                    return true;
-                }
-                try {
-                    auto userOpt = userRepo_->getById(assignRoleUserId_);
-                    if (!userOpt.has_value()) {
-                        assignRoleStatus_ = "[Error] User not found.";
-                        return true;
-                    }
-                    User u = *userOpt;
-                    u.setRole(UserRole::Admin);
-                    userRepo_->update(u);
+                auto res = userService_->assignAdminRole(assignRoleUserId_);
+                if (res.is_ok()) {
                     assignRoleStatus_ = "[Success] User promoted to Admin.";
                     assignRoleUserId_.clear();
-                } catch (const std::exception& e) {
-                    assignRoleStatus_ = std::string("[Error] ") + e.what();
+                } else {
+                    assignRoleStatus_ = "[Error] " + Services::toErrorMessage(res.error());
                 }
                 return true;
             }
@@ -249,29 +226,13 @@ AdminManageUsers::AdminManageUsers(
                 return true;
             }
             if ((assignPolicyMenu_->Focused() && assignPolicyActionSel_ == 0) || !assignPolicyMenu_->Focused()) {
-                if (assignPolicyUserId_.empty() || assignPolicyId_.empty()) {
-                    assignPolicyStatus_ = "[Error] Both User ID and Policy ID are required.";
-                    return true;
-                }
-                try {
-                    auto userOpt = userRepo_->getById(assignPolicyUserId_);
-                    if (!userOpt.has_value()) {
-                        assignPolicyStatus_ = "[Error] User not found.";
-                        return true;
-                    }
-                    auto policyOpt = policyRepo_->getById(assignPolicyId_);
-                    if (!policyOpt.has_value()) {
-                        assignPolicyStatus_ = "[Error] Policy not found.";
-                        return true;
-                    }
-                    User u = *userOpt;
-                    u.setPolicyId(assignPolicyId_);
-                    userRepo_->update(u);
+                auto res = userService_->assignPolicy(assignPolicyUserId_, assignPolicyId_);
+                if (res.is_ok()) {
                     assignPolicyStatus_ = "[Success] Policy assigned to user.";
                     assignPolicyUserId_.clear();
                     assignPolicyId_.clear();
-                } catch (const std::exception& e) {
-                    assignPolicyStatus_ = std::string("[Error] ") + e.what();
+                } else {
+                    assignPolicyStatus_ = "[Error] " + Services::toErrorMessage(res.error());
                 }
                 return true;
             }
@@ -313,24 +274,13 @@ AdminManageUsers::AdminManageUsers(
                 return true;
             }
             if ((toggleActiveMenu_->Focused() && toggleActiveActionSel_ == 0) || !toggleActiveMenu_->Focused()) {
-                if (toggleActiveUserId_.empty()) {
-                    toggleActiveStatus_ = "[Error] User ID cannot be empty.";
-                    return true;
-                }
-                try {
-                    auto userOpt = userRepo_->getById(toggleActiveUserId_);
-                    if (!userOpt.has_value()) {
-                        toggleActiveStatus_ = "[Error] User not found.";
-                        return true;
-                    }
-                    User u = *userOpt;
-                    u.setActive(!u.isActive());
-                    userRepo_->update(u);
+                auto res = userService_->toggleUserActive(toggleActiveUserId_);
+                if (res.is_ok()) {
                     toggleActiveStatus_ = std::string("[Success] User is now ") +
-                                          (u.isActive() ? "ACTIVE." : "INACTIVE.");
+                                          (res.value() ? "ACTIVE." : "INACTIVE.");
                     toggleActiveUserId_.clear();
-                } catch (const std::exception& e) {
-                    toggleActiveStatus_ = std::string("[Error] ") + e.what();
+                } else {
+                    toggleActiveStatus_ = "[Error] " + Services::toErrorMessage(res.error());
                 }
                 return true;
             }

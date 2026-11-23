@@ -4,20 +4,14 @@
 #include <string>
 #include <vector>
 #include "ftxui/component/component.hpp"
-#include "../models/CardRepo.h"
-#include "../models/UserRepo.h"
-#include "../models/AccessLogRecordRepo.h"
-#include "../services/CryptoService.h"
+#include "../services/CardService.h"
 
 namespace UI {
 
 class AdminManageCards {
 public:
     AdminManageCards(
-        std::shared_ptr<CardRepo> cardRepo,
-        std::shared_ptr<UserRepo> userRepo,
-        std::shared_ptr<AccessLogRecordRepo> logRepo,
-        std::shared_ptr<CryptoService> cryptoService,
+        std::shared_ptr<CardService> cardService,
         std::function<void()> onBack
     );
     ftxui::Component getComponent() { return component_; }
@@ -26,13 +20,8 @@ public:
 private:
     ftxui::Component component_;
 
-    std::shared_ptr<CardRepo> cardRepo_;
-    std::shared_ptr<UserRepo> userRepo_;
-    std::shared_ptr<AccessLogRecordRepo> logRepo_;
-    std::shared_ptr<CryptoService> cryptoService_;
+    std::shared_ptr<CardService> cardService_;
     std::function<void()> onBack_;
-
-    void logAdminEvent(const std::string& cardId, LogEventType type);
 
     int innerScreen_ = 0;
 

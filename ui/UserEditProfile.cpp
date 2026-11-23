@@ -20,12 +20,12 @@ void UserEditProfile::loadUser(User* user) {
 }
 
 UserEditProfile::UserEditProfile(
-    std::shared_ptr<UserRepo> userRepo,
+    std::shared_ptr<UserService> userService,
     User* currentUser,
     std::function<void()> onBack
-) : userRepo_(userRepo),
+) : userService_(std::move(userService)),
     currentUser_(currentUser),
-    onBack_(onBack) {
+    onBack_(std::move(onBack)) {
 
     loadUser(currentUser_);
 
@@ -52,19 +52,17 @@ UserEditProfile::UserEditProfile(
                     return true;
                 }
 
-                if (firstNameVal_.empty() || lastNameVal_.empty()) {
-                    statusMessage_ = "[Error]: First name and Last name cannot be empty.";
-                    return true;
-                }
+                auto res = userService_->updateName(
+                    std::string(currentUser_->getId()),
+                    firstNameVal_,
+                    lastNameVal_
+                );
 
-                currentUser_->setFirstName(firstNameVal_);
-                currentUser_->setLastName(lastNameVal_);
-
-                try {
-                    userRepo_->update(*currentUser_);
+                if (res.is_ok()) {
+                    *currentUser_ = res.value();
                     statusMessage_ = "[Success]: Profile updated successfully!";
-                } catch (const std::exception& e) {
-                    statusMessage_ = std::string("[Error]: ") + e.what();
+                } else {
+                    statusMessage_ = "[Error]: " + Services::toErrorMessage(res.error());
                 }
                 return true;
             }

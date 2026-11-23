@@ -10,6 +10,10 @@
 #include "models/AccessPolicyRepo.h"
 #include "models/AccessLogRecordRepo.h"
 #include "services/CryptoService.h"
+#include "services/AdminCheck.h"
+#include "services/CardCheck.h"
+#include "services/UserService.h"
+#include "services/CardService.h"
 #include "ui/ConsoleUI.h"
 
 namespace {
@@ -97,7 +101,21 @@ int main() {
             std::cout << "Existing database loaded (state preserved).\n";
         }
 
-        UI::runConsoleUI(userRepo, cardRepo, policyRepo, logRepo, cryptoService);
+        auto adminCheck = std::make_shared<AdminCheck>(userRepo, cardRepo, cryptoService);
+        auto cardCheck = std::make_shared<CardCheck>(cardRepo, userRepo, policyRepo, logRepo, cryptoService);
+        auto userService = std::make_shared<UserService>(userRepo, policyRepo, cryptoService);
+        auto cardService = std::make_shared<CardService>(cardRepo, userRepo, logRepo, cryptoService);
+
+        UI::runConsoleUI({
+            .userService = userService,
+            .cardService = cardService,
+            .adminCheck = adminCheck,
+            .cardCheck = cardCheck,
+            .userRepo = userRepo,
+            .cardRepo = cardRepo,
+            .policyRepo = policyRepo,
+            .logRepo = logRepo
+        });
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';

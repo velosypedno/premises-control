@@ -22,3 +22,5 @@ public:
     bool authenticate(const std::string& username, const std::string& password) const;
     std::optional<User> authenticateByCard(const std::string& cardId, const std::string& pin) const;
 };
+
+using AdminService = AdminCheck;

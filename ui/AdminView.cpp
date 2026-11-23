@@ -2,12 +2,10 @@
 
 namespace UI {
 
-AdminView::AdminView(std::shared_ptr<UserRepo> userRepo,
-                     std::shared_ptr<CardRepo> cardRepo,
-                     std::shared_ptr<CryptoService> cryptoService,
+AdminView::AdminView(std::shared_ptr<AdminCheck> adminCheck,
                      std::function<void()> onBack,
                      std::function<void(const User&)> onSuccess)
-    : adminCheck(userRepo, cardRepo, cryptoService), onBack(onBack), onSuccess(onSuccess)
+    : adminCheck_(std::move(adminCheck)), onBack(onBack), onSuccess(onSuccess)
 {
     using namespace ftxui;
 
@@ -29,7 +27,7 @@ AdminView::AdminView(std::shared_ptr<UserRepo> userRepo,
                 return true;
             }
 
-            auto userOpt = adminCheck.authenticateByCard(cardIdInput, pinInput);
+            auto userOpt = adminCheck_->authenticateByCard(cardIdInput, pinInput);
             if (userOpt.has_value()) {
                 authenticatedUser_ = userOpt;
                 statusMessage = "[Success]: Administrator authenticated!";

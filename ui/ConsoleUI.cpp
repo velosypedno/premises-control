@@ -11,7 +11,10 @@
 
 #include "../infra/Database.h"
 #include "../infra/Config.h"
-#include "../services/CryptoService.h"
+#include "../services/AdminCheck.h"
+#include "../services/CardCheck.h"
+#include "../services/UserService.h"
+#include "../services/CardService.h"
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/screen_interactive.hpp"
@@ -19,35 +22,29 @@
 
 namespace UI {
 
-void runConsoleUI(
-    std::shared_ptr<UserRepo> userRepo,
-    std::shared_ptr<CardRepo> cardRepo,
-    std::shared_ptr<AccessPolicyRepo> policyRepo,
-    std::shared_ptr<AccessLogRecordRepo> logRepo,
-    std::shared_ptr<CryptoService> cryptoService
-) {
+void runConsoleUI(const AppDependencies& deps) {
     using namespace ftxui;
 
     int currentScreen = 0;
 
     AdminDashboard adminDashboard(
         [&]() { currentScreen = 0; },
-        userRepo,
-        cardRepo,
-        policyRepo,
-        logRepo,
-        cryptoService
+        deps.userService,
+        deps.cardService,
+        deps.policyRepo,
+        deps.userRepo,
+        deps.logRepo
     );
 
     UserDashboard userDashboard(
         [&]() { currentScreen = 0; },
-        userRepo,
-        cardRepo,
-        policyRepo,
-        cryptoService
+        deps.userService,
+        deps.cardService,
+        deps.cardRepo,
+        deps.policyRepo
     );
 
-    AdminView adminView(userRepo, cardRepo, cryptoService,
+    AdminView adminView(deps.adminCheck,
         [&]() { currentScreen = 0; },
         [&](const User& user) {
             adminDashboard.setCurrentUser(user);
@@ -56,7 +53,7 @@ void runConsoleUI(
         }
     );
 
-    UserView userView(cardRepo, userRepo, policyRepo, logRepo, cryptoService,
+    UserView userView(deps.cardCheck, deps.cardRepo, deps.userRepo,
         [&]() { currentScreen = 0; },
         [&](const Card& card, const User& user) {
             userDashboard.setCurrentSession(card, user);

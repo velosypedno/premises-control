@@ -21,15 +21,6 @@ std::string nowTimestamp() {
 }
 } // namespace
 
-void AdminManageCards::logAdminEvent(const std::string& cardId, LogEventType type) {
-    if (!logRepo_) return;
-    try {
-        AccessLogRecord record(nowTimestamp(), cardId, type);
-        logRepo_->create(record);
-    } catch (...) {
-    }
-}
-
 void AdminManageCards::reset() {
     innerScreen_ = 0;
     subSel_ = 0;
@@ -50,16 +41,10 @@ void AdminManageCards::reset() {
 }
 
 AdminManageCards::AdminManageCards(
-    std::shared_ptr<CardRepo> cardRepo,
-    std::shared_ptr<UserRepo> userRepo,
-    std::shared_ptr<AccessLogRecordRepo> logRepo,
-    std::shared_ptr<CryptoService> cryptoService,
+    std::shared_ptr<CardService> cardService,
     std::function<void()> onBack
-) : cardRepo_(cardRepo),
-    userRepo_(userRepo),
-    logRepo_(logRepo),
-    cryptoService_(cryptoService),
-    onBack_(onBack) {
+) : cardService_(std::move(cardService)),
+    onBack_(std::move(onBack)) {
 
     subMenu_ = Menu(&subEntries_, &subSel_);
 
@@ -106,7 +91,7 @@ AdminManageCards::AdminManageCards(
         rows.push_back(text("CardID | UserID | Status | FailedAttempts") | bold);
         rows.push_back(separator());
         try {
-            auto cards = cardRepo_->list();
+            auto cards = cardService_->listAllCards();
             if (cards.empty()) {
                 rows.push_back(text("No cards found.") | dim | center);
             } else {
@@ -151,30 +136,14 @@ AdminManageCards::AdminManageCards(
                 return true;
             }
             if ((addActionMenu_->Focused() && addActionSel_ == 0) || !addActionMenu_->Focused()) {
-                if (addUserId_.empty() || addCardNum_.empty() || addPin_.empty()) {
-                    addStatus_ = "[Error] All fields are required.";
-                    return true;
-                }
-                try {
-                    if (cardRepo_->getByCardId(addCardNum_).has_value()) {
-                        addStatus_ = "[Error] Card number already exists.";
-                        return true;
-                    }
-                    auto userOpt = userRepo_->getById(addUserId_);
-                    if (!userOpt.has_value()) {
-                        addStatus_ = "[Error] User not found.";
-                        return true;
-                    }
-                    std::string hash = cryptoService_->hashPin(addPin_);
-                    Card card(addUserId_, addCardNum_, hash);
-                    cardRepo_->create(card);
-                    logAdminEvent(addCardNum_, LogEventType::CardIssued);
+                auto res = cardService_->addCard(addUserId_, addCardNum_, addPin_);
+                if (res.is_ok()) {
                     addStatus_ = "[Success] Card added.";
                     addUserId_.clear();
                     addCardNum_.clear();
                     addPin_.clear();
-                } catch (const std::exception& e) {
-                    addStatus_ = std::string("[Error] ") + e.what();
+                } else {
+                    addStatus_ = "[Error] " + Services::toErrorMessage(res.error());
                 }
                 return true;
             }
@@ -218,23 +187,12 @@ AdminManageCards::AdminManageCards(
                 return true;
             }
             if ((blockMenu_->Focused() && blockActionSel_ == 0) || !blockMenu_->Focused()) {
-                if (blockCardNum_.empty()) {
-                    blockStatus_ = "[Error] Card number cannot be empty.";
-                    return true;
-                }
-                try {
-                    auto cardOpt = cardRepo_->getByCardId(blockCardNum_);
-                    if (!cardOpt.has_value()) {
-                        blockStatus_ = "[Error] Card not found.";
-                        return true;
-                    }
-                    Card c = *cardOpt;
-                    c.setStatus(CardStatus::Blocked);
-                    cardRepo_->update(c);
+                auto res = cardService_->blockCard(blockCardNum_);
+                if (res.is_ok()) {
                     blockStatus_ = "[Success] Card blocked.";
                     blockCardNum_.clear();
-                } catch (const std::exception& e) {
-                    blockStatus_ = std::string("[Error] ") + e.what();
+                } else {
+                    blockStatus_ = "[Error] " + Services::toErrorMessage(res.error());
                 }
                 return true;
             }
@@ -274,25 +232,12 @@ AdminManageCards::AdminManageCards(
                 return true;
             }
             if ((unblockMenu_->Focused() && unblockActionSel_ == 0) || !unblockMenu_->Focused()) {
-                if (unblockCardNum_.empty()) {
-                    unblockStatus_ = "[Error] Card number cannot be empty.";
-                    return true;
-                }
-                try {
-                    auto cardOpt = cardRepo_->getByCardId(unblockCardNum_);
-                    if (!cardOpt.has_value()) {
-                        unblockStatus_ = "[Error] Card not found.";
-                        return true;
-                    }
-                    Card c = *cardOpt;
-                    c.setStatus(CardStatus::Active);
-                    c.resetFailedAttempts();
-                    cardRepo_->update(c);
-                    logAdminEvent(unblockCardNum_, LogEventType::CardUnlocked);
+                auto res = cardService_->unblockCard(unblockCardNum_);
+                if (res.is_ok()) {
                     unblockStatus_ = "[Success] Card unblocked and failed attempts reset.";
                     unblockCardNum_.clear();
-                } catch (const std::exception& e) {
-                    unblockStatus_ = std::string("[Error] ") + e.what();
+                } else {
+                    unblockStatus_ = "[Error] " + Services::toErrorMessage(res.error());
                 }
                 return true;
             }
@@ -338,9 +283,9 @@ AdminManageCards::AdminManageCards(
                         revokeStatus_ = "[Error] Card number cannot be empty.";
                         return true;
                     }
-                    auto cardOpt = cardRepo_->getByCardId(revokeCardNum_);
-                    if (!cardOpt.has_value()) {
-                        revokeStatus_ = "[Error] Card not found.";
+                    auto cardOpt = cardService_->getCardByNumber(revokeCardNum_);
+                    if (!cardOpt.is_ok()) {
+                        revokeStatus_ = "[Error] " + Services::toErrorMessage(cardOpt.error());
                         return true;
                     }
                     revokeConfirmPending_ = true;
@@ -354,24 +299,14 @@ AdminManageCards::AdminManageCards(
                     revokeStatus_ = "Revoke cancelled.";
                     return true;
                 }
-                try {
-                    auto cardOpt = cardRepo_->getByCardId(revokeCardNum_);
-                    if (!cardOpt.has_value()) {
-                        revokeStatus_ = "[Error] Card not found.";
-                        revokeConfirmPending_ = false;
-                        return true;
-                    }
-                    Card c = *cardOpt;
-                    c.setStatus(CardStatus::Revoked);
-                    cardRepo_->update(c);
-                    logAdminEvent(revokeCardNum_, LogEventType::CardRevoked);
+                auto res = cardService_->revokeCard(revokeCardNum_);
+                if (res.is_ok()) {
                     revokeStatus_ = "[Success] Card revoked.";
                     revokeCardNum_.clear();
-                    revokeConfirmPending_ = false;
-                } catch (const std::exception& e) {
-                    revokeStatus_ = std::string("[Error] ") + e.what();
-                    revokeConfirmPending_ = false;
+                } else {
+                    revokeStatus_ = "[Error] " + Services::toErrorMessage(res.error());
                 }
+                revokeConfirmPending_ = false;
                 return true;
             }
         }
@@ -421,25 +356,13 @@ AdminManageCards::AdminManageCards(
                 return true;
             }
             if ((changePinMenu_->Focused() && changePinActionSel_ == 0) || !changePinMenu_->Focused()) {
-                if (changePinCardNum_.empty() || changePinNew_.empty()) {
-                    changePinStatus_ = "[Error] Card number and new PIN are required.";
-                    return true;
-                }
-                try {
-                    auto cardOpt = cardRepo_->getByCardId(changePinCardNum_);
-                    if (!cardOpt.has_value()) {
-                        changePinStatus_ = "[Error] Card not found.";
-                        return true;
-                    }
-                    Card c = *cardOpt;
-                    c.setPinHash(cryptoService_->hashPin(changePinNew_));
-                    cardRepo_->update(c);
-                    logAdminEvent(changePinCardNum_, LogEventType::PinChanged);
+                auto res = cardService_->changePinByAdmin(changePinCardNum_, changePinNew_);
+                if (res.is_ok()) {
                     changePinStatus_ = "[Success] PIN changed.";
                     changePinCardNum_.clear();
                     changePinNew_.clear();
-                } catch (const std::exception& e) {
-                    changePinStatus_ = std::string("[Error] ") + e.what();
+                } else {
+                    changePinStatus_ = "[Error] " + Services::toErrorMessage(res.error());
                 }
                 return true;
             }

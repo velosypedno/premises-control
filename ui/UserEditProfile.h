@@ -6,14 +6,14 @@
 #include <vector>
 #include "ftxui/component/component.hpp"
 #include "../models/User.h"
-#include "../models/UserRepo.h"
+#include "../services/UserService.h"
 
 namespace UI {
 
 class UserEditProfile {
 public:
     UserEditProfile(
-        std::shared_ptr<UserRepo> userRepo,
+        std::shared_ptr<UserService> userService,
         User* currentUser,
         std::function<void()> onBack
     );
@@ -24,7 +24,7 @@ public:
 private:
     ftxui::Component component_;
 
-    std::shared_ptr<UserRepo> userRepo_;
+    std::shared_ptr<UserService> userService_;
     User* currentUser_ = nullptr;
     std::function<void()> onBack_;
 

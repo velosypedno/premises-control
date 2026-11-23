@@ -27,15 +27,15 @@ void UserDashboard::resetStatus() {
 
 UserDashboard::UserDashboard(
     std::function<void()> onLogout,
-    std::shared_ptr<UserRepo> userRepo,
+    std::shared_ptr<UserService> userService,
+    std::shared_ptr<CardService> cardService,
     std::shared_ptr<CardRepo> cardRepo,
-    std::shared_ptr<AccessPolicyRepo> policyRepo,
-    std::shared_ptr<CryptoService> cryptoService
+    std::shared_ptr<AccessPolicyRepo> policyRepo
 ) : onLogout_(onLogout),
-    userRepo_(userRepo),
-    cardRepo_(cardRepo),
-    policyRepo_(policyRepo),
-    cryptoService_(cryptoService) {
+    userService_(std::move(userService)),
+    cardService_(std::move(cardService)),
+    cardRepo_(std::move(cardRepo)),
+    policyRepo_(std::move(policyRepo)) {
 
     menuEntries_ = {
         "1. Edit My Profile (Name & Surname)",
@@ -49,8 +49,8 @@ UserDashboard::UserDashboard(
 
     auto goBack = [this]() { selectedTab_ = 0; };
 
-    editProfile_ = std::make_shared<UserEditProfile>(userRepo_, &currentUser_, goBack);
-    changePin_ = std::make_shared<UserChangePin>(cardRepo_, cryptoService_, &currentUser_, &currentCard_, goBack);
+    editProfile_ = std::make_shared<UserEditProfile>(userService_, &currentUser_, goBack);
+    changePin_ = std::make_shared<UserChangePin>(cardService_, &currentUser_, &currentCard_, goBack);
     cardsView_ = std::make_shared<UserCardsView>(cardRepo_, &currentUser_, &currentCard_, goBack);
     policyView_ = std::make_shared<UserPolicyView>(policyRepo_, &currentUser_, goBack);
 

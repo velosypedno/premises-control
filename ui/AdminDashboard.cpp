@@ -28,17 +28,17 @@ void AdminDashboard::resetStatus() {
 
 AdminDashboard::AdminDashboard(
     std::function<void()> onLogout,
-    std::shared_ptr<UserRepo> userRepo,
-    std::shared_ptr<CardRepo> cardRepo,
+    std::shared_ptr<UserService> userService,
+    std::shared_ptr<CardService> cardService,
     std::shared_ptr<AccessPolicyRepo> policyRepo,
-    std::shared_ptr<AccessLogRecordRepo> logRepo,
-    std::shared_ptr<CryptoService> cryptoService
+    std::shared_ptr<UserRepo> userRepo,
+    std::shared_ptr<AccessLogRecordRepo> logRepo
 ) : onLogout_(onLogout),
-    userRepo_(userRepo),
-    cardRepo_(cardRepo),
-    policyRepo_(policyRepo),
-    logRepo_(logRepo),
-    cryptoService_(cryptoService)
+    userService_(std::move(userService)),
+    cardService_(std::move(cardService)),
+    policyRepo_(std::move(policyRepo)),
+    userRepo_(std::move(userRepo)),
+    logRepo_(std::move(logRepo))
 {
     menuEntries_ = {
         "1. Edit My Profile",
@@ -53,9 +53,9 @@ AdminDashboard::AdminDashboard(
 
     auto goBack = [this]() { selectedTab_ = 0; };
 
-    editProfile_ = std::make_shared<AdminEditProfile>(userRepo_, cryptoService_, &currentUser_, goBack);
-    manageUsers_ = std::make_shared<AdminManageUsers>(userRepo_, policyRepo_, cryptoService_, goBack);
-    manageCards_ = std::make_shared<AdminManageCards>(cardRepo_, userRepo_, logRepo_, cryptoService_, goBack);
+    editProfile_ = std::make_shared<AdminEditProfile>(userService_, &currentUser_, goBack);
+    manageUsers_ = std::make_shared<AdminManageUsers>(userService_, goBack);
+    manageCards_ = std::make_shared<AdminManageCards>(cardService_, goBack);
     managePolicies_ = std::make_shared<AdminManagePolicies>(policyRepo_, userRepo_, goBack);
     accessLog_ = std::make_shared<AdminAccessLog>(logRepo_, goBack);
 

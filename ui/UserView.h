@@ -6,11 +6,8 @@
 #include <functional>
 #include "ftxui/component/component.hpp"
 #include "../services/CardCheck.h"
-#include "../services/CryptoService.h"
 #include "../models/CardRepo.h"
 #include "../models/UserRepo.h"
-#include "../models/AccessPolicyRepo.h"
-#include "../models/AccessLogRecordRepo.h"
 #include "../models/User.h"
 #include "../models/Card.h"
 
@@ -34,13 +31,10 @@ private:
     bool useSystemTime = false;
     std::string statusMessage = "Введіть номер картки та PIN.";
 
+    std::shared_ptr<CardCheck> cardCheckService_;
     std::shared_ptr<CardRepo> cardRepo_;
     std::shared_ptr<UserRepo> userRepo_;
-    std::shared_ptr<AccessPolicyRepo> policyRepo_;
-    std::shared_ptr<AccessLogRecordRepo> logRepo_;
-    std::shared_ptr<CryptoService> cryptoService_;
 
-    CardCheck cardCheckService_;
     std::function<void()> onBack_;
     std::function<void(const Card&, const User&)> onSuccess_;
 
@@ -52,11 +46,9 @@ private:
     ftxui::Component component;
 
 public:
-    UserView(std::shared_ptr<CardRepo> cardRepo,
+    UserView(std::shared_ptr<CardCheck> cardCheck,
+             std::shared_ptr<CardRepo> cardRepo,
              std::shared_ptr<UserRepo> userRepo,
-             std::shared_ptr<AccessPolicyRepo> policyRepo,
-             std::shared_ptr<AccessLogRecordRepo> logRepo,
-             std::shared_ptr<CryptoService> cryptoService,
              std::function<void()> onBack,
              std::function<void(const Card&, const User&)> onSuccess = nullptr);
 
@@ -71,7 +63,7 @@ public:
         useSystemTime = false;
     }
 
-    CardCheck& getCardCheckService() { return cardCheckService_; }
+    CardCheck& getCardCheckService() { return *cardCheckService_; }
 };
 
 } // namespace UI

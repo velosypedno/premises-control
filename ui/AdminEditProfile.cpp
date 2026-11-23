@@ -1,19 +1,16 @@
 #include "AdminEditProfile.h"
 #include "ftxui/component/component.hpp"
 #include "ftxui/dom/elements.hpp"
-#include <fstream>
 
 using namespace ftxui;
 
 namespace UI {
 
 void AdminEditProfile::loadUser() {
-    if (currentUser_) {
-        if (!currentUser_->getId().empty()) {
-            auto fresh = userRepo_->getById(std::string(currentUser_->getId()));
-            if (fresh.has_value()) {
-                *currentUser_ = *fresh;
-            }
+    if (currentUser_ && !currentUser_->getId().empty()) {
+        auto res = userService_->getUserById(std::string(currentUser_->getId()));
+        if (res.is_ok()) {
+            *currentUser_ = res.value();
         }
         firstNameVal_ = std::string(currentUser_->getFirstName());
         lastNameVal_ = std::string(currentUser_->getLastName());
@@ -25,14 +22,12 @@ void AdminEditProfile::loadUser() {
 }
 
 AdminEditProfile::AdminEditProfile(
-    std::shared_ptr<UserRepo> userRepo,
-    std::shared_ptr<CryptoService> cryptoService,
+    std::shared_ptr<UserService> userService,
     User* currentUser,
     std::function<void()> onBack
-) : userRepo_(userRepo),
-    cryptoService_(cryptoService),
+) : userService_(std::move(userService)),
     currentUser_(currentUser),
-    onBack_(onBack) {
+    onBack_(std::move(onBack)) {
 
     loadUser();
 
@@ -67,32 +62,20 @@ AdminEditProfile::AdminEditProfile(
                     return true;
                 }
 
-                if (firstNameVal_.empty() || lastNameVal_.empty() || usernameVal_.empty()) {
-                    statusMessage_ = "[Error]: First name, last name, and username cannot be empty.";
-                    return true;
-                }
+                auto res = userService_->updateProfile(
+                    std::string(currentUser_->getId()),
+                    firstNameVal_,
+                    lastNameVal_,
+                    usernameVal_,
+                    passwordVal_.empty() ? std::nullopt : std::make_optional(passwordVal_)
+                );
 
-                auto existing = userRepo_->getByUsername(usernameVal_);
-                if (existing.has_value() && existing->getId() != currentUser_->getId()) {
-                    statusMessage_ = "[Error]: Username is already taken by another user.";
-                    return true;
-                }
-
-                currentUser_->setFirstName(firstNameVal_);
-                currentUser_->setLastName(lastNameVal_);
-                currentUser_->setUsername(usernameVal_);
-
-                if (!passwordVal_.empty()) {
-                    std::string newHash = cryptoService_->hashPin(passwordVal_);
-                    currentUser_->setPasswordHash(newHash);
-                }
-
-                try {
-                    userRepo_->update(*currentUser_);
+                if (res.is_ok()) {
+                    *currentUser_ = res.value();
                     passwordVal_.clear();
                     statusMessage_ = "[Success]: Profile updated successfully!";
-                } catch (const std::exception& e) {
-                    statusMessage_ = std::string("[Error]: ") + e.what();
+                } else {
+                    statusMessage_ = "[Error]: " + Services::toErrorMessage(res.error());
                 }
                 return true;
             }

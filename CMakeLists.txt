@@ -62,6 +62,11 @@ add_executable(premises_control
         services/AdminCheck.cpp
         services/CryptoService.h
         services/CryptoService.cpp
+        services/Result.h
+        services/UserService.h
+        services/UserService.cpp
+        services/CardService.h
+        services/CardService.cpp
         ui/ConsoleUI.h
         ui/ConsoleUI.cpp
         ui/AdminView.h
@@ -115,5 +120,7 @@ add_executable(verify_plan
         services/CardCheck.cpp
         services/AdminCheck.cpp
         services/CryptoService.cpp
+        services/UserService.cpp
+        services/CardService.cpp
 )
 target_link_libraries(verify_plan PRIVATE sqlite3_amalg)

@@ -5,11 +5,12 @@
 #include <functional>
 #include <memory>
 #include "ftxui/component/component.hpp"
+#include "../models/User.h"
 #include "../models/UserRepo.h"
-#include "../models/CardRepo.h"
 #include "../models/AccessPolicyRepo.h"
 #include "../models/AccessLogRecordRepo.h"
-#include "../services/CryptoService.h"
+#include "../services/UserService.h"
+#include "../services/CardService.h"
 
 namespace UI {
     class AdminEditProfile;
@@ -22,11 +23,11 @@ class AdminDashboard {
 public:
     AdminDashboard(
         std::function<void()> onLogout,
-        std::shared_ptr<UserRepo> userRepo,
-        std::shared_ptr<CardRepo> cardRepo,
+        std::shared_ptr<UserService> userService,
+        std::shared_ptr<CardService> cardService,
         std::shared_ptr<AccessPolicyRepo> policyRepo,
-        std::shared_ptr<AccessLogRecordRepo> logRepo,
-        std::shared_ptr<CryptoService> cryptoService
+        std::shared_ptr<UserRepo> userRepo,
+        std::shared_ptr<AccessLogRecordRepo> logRepo
     );
 
     ftxui::Component getComponent() { return component_; }
@@ -36,11 +37,11 @@ public:
 private:
     ftxui::Component component_;
 
-    std::shared_ptr<UserRepo> userRepo_;
-    std::shared_ptr<CardRepo> cardRepo_;
+    std::shared_ptr<UserService> userService_;
+    std::shared_ptr<CardService> cardService_;
     std::shared_ptr<AccessPolicyRepo> policyRepo_;
+    std::shared_ptr<UserRepo> userRepo_;
     std::shared_ptr<AccessLogRecordRepo> logRepo_;
-    std::shared_ptr<CryptoService> cryptoService_;
     std::function<void()> onLogout_;
 
     User currentUser_;

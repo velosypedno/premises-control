@@ -7,16 +7,14 @@
 #include "ftxui/component/component.hpp"
 #include "../models/User.h"
 #include "../models/Card.h"
-#include "../models/CardRepo.h"
-#include "../services/CryptoService.h"
+#include "../services/CardService.h"
 
 namespace UI {
 
 class UserChangePin {
 public:
     UserChangePin(
-        std::shared_ptr<CardRepo> cardRepo,
-        std::shared_ptr<CryptoService> cryptoService,
+        std::shared_ptr<CardService> cardService,
         User* currentUser,
         Card* currentCard,
         std::function<void()> onBack
@@ -28,8 +26,7 @@ public:
 private:
     ftxui::Component component_;
 
-    std::shared_ptr<CardRepo> cardRepo_;
-    std::shared_ptr<CryptoService> cryptoService_;
+    std::shared_ptr<CardService> cardService_;
     User* currentUser_ = nullptr;
     Card* currentCard_ = nullptr;
     std::function<void()> onBack_;
