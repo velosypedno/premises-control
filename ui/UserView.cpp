@@ -2,8 +2,24 @@
 #include <chrono>
 #include <ctime>
 #include <cstdio>
+#include <cctype>
 
 namespace UI {
+
+namespace {
+bool isValidHHMM(const std::string& t) {
+    if (t.size() != 5 || t[2] != ':') return false;
+    if (!std::isdigit(static_cast<unsigned char>(t[0])) ||
+        !std::isdigit(static_cast<unsigned char>(t[1])) ||
+        !std::isdigit(static_cast<unsigned char>(t[3])) ||
+        !std::isdigit(static_cast<unsigned char>(t[4]))) {
+        return false;
+    }
+    int h = (t[0] - '0') * 10 + (t[1] - '0');
+    int m = (t[3] - '0') * 10 + (t[4] - '0');
+    return h >= 0 && h <= 23 && m >= 0 && m <= 59;
+}
+} // namespace
 
 UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
                    std::shared_ptr<CardRepo> cardRepo,
@@ -27,6 +43,72 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
     timeBox_ = Input(&timeInput, "10:00");
     systemTimeCheckbox_ = Checkbox("Use Current Live System Time", &useSystemTime);
 
+    auto attemptLogin = [this]() {
+        if (cardIdInput.empty() || cardPinInput.empty()) {
+            statusMessage = "[Error]: Please enter both Card ID and PIN code.";
+            return;
+        }
+
+        DayOfWeek checkDay;
+        std::string checkTime;
+
+        if (useSystemTime) {
+            auto now = std::chrono::system_clock::now();
+            std::time_t t = std::chrono::system_clock::to_time_t(now);
+            std::tm tm = *std::localtime(&t);
+
+            switch (tm.tm_wday) {
+                case 1: checkDay = DayOfWeek::Monday; break;
+                case 2: checkDay = DayOfWeek::Tuesday; break;
+                case 3: checkDay = DayOfWeek::Wednesday; break;
+                case 4: checkDay = DayOfWeek::Thursday; break;
+                case 5: checkDay = DayOfWeek::Friday; break;
+                case 6: checkDay = DayOfWeek::Saturday; break;
+                case 0:
+                default: checkDay = DayOfWeek::Sunday; break;
+            }
+
+            char buf[6];
+            std::snprintf(buf, sizeof(buf), "%02d:%02d", tm.tm_hour, tm.tm_min);
+            checkTime = std::string(buf);
+        } else {
+            if (daySelected < 0 || daySelected >= static_cast<int>(dayEntries.size())) {
+                statusMessage = "[Error]: Invalid day selected.";
+                return;
+            }
+            if (!isValidHHMM(timeInput)) {
+                statusMessage = "[Error]: Time must be in HH:MM format (00:00-23:59).";
+                return;
+            }
+            checkDay = static_cast<DayOfWeek>(daySelected);
+            checkTime = timeInput;
+        }
+
+        bool ok = cardCheckService_->authenticate(cardIdInput, cardPinInput, checkDay, checkTime);
+
+        if (ok) {
+            auto cardOpt = cardRepo_->getByCardId(cardIdInput);
+            auto userOpt = userRepo_->getById(std::string(cardOpt->getUserId()));
+            statusMessage = "Доступ дозволено. Двері відкрито [симуляція].";
+            if (onSuccess_ && cardOpt && userOpt) {
+                onSuccess_(*cardOpt, *userOpt);
+            }
+        } else {
+            auto lastEv = cardCheckService_->getLastEventType();
+            if (lastEv.has_value()) {
+                if (*lastEv == LogEventType::PersistFailed) {
+                    statusMessage = "Помилка збереження. Доступ не надано.";
+                } else {
+                    statusMessage = "Доступ відхилено. " + CardCheck::eventTypeToMessage(*lastEv);
+                }
+            } else {
+                statusMessage = "Доступ відхилено.";
+            }
+        }
+    };
+
+    auto loginButton = Button("Увійти", attemptLogin);
+
     auto slotRow = Container::Horizontal({
         dayDropdown_,
         timeBox_,
@@ -37,66 +119,10 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
         cardPinBox_,
         systemTimeCheckbox_,
         slotRow,
+        loginButton,
     });
 
-    auto eventHandler = CatchEvent(container, [this](Event event) {
-        if (event == Event::Return) {
-            if (cardIdInput.empty() || cardPinInput.empty()) {
-                statusMessage = "[Error]: Please enter both Card ID and PIN code.";
-                return true;
-            }
-
-            DayOfWeek checkDay;
-            std::string checkTime;
-
-            if (useSystemTime) {
-                auto now = std::chrono::system_clock::now();
-                std::time_t t = std::chrono::system_clock::to_time_t(now);
-                std::tm tm = *std::localtime(&t);
-
-                switch (tm.tm_wday) {
-                    case 1: checkDay = DayOfWeek::Monday; break;
-                    case 2: checkDay = DayOfWeek::Tuesday; break;
-                    case 3: checkDay = DayOfWeek::Wednesday; break;
-                    case 4: checkDay = DayOfWeek::Thursday; break;
-                    case 5: checkDay = DayOfWeek::Friday; break;
-                    case 6: checkDay = DayOfWeek::Saturday; break;
-                    case 0:
-                    default: checkDay = DayOfWeek::Sunday; break;
-                }
-
-                char buf[6];
-                std::snprintf(buf, sizeof(buf), "%02d:%02d", tm.tm_hour, tm.tm_min);
-                checkTime = std::string(buf);
-            } else {
-                checkDay = static_cast<DayOfWeek>(daySelected);
-                checkTime = timeInput;
-            }
-
-            bool ok = cardCheckService_->authenticate(cardIdInput, cardPinInput, checkDay, checkTime);
-
-            if (ok) {
-                auto cardOpt = cardRepo_->getByCardId(cardIdInput);
-                auto userOpt = userRepo_->getById(std::string(cardOpt->getUserId()));
-                statusMessage = "Доступ дозволено. Двері відкрито [симуляція].";
-                if (onSuccess_ && cardOpt && userOpt) {
-                    onSuccess_(*cardOpt, *userOpt);
-                }
-            } else {
-                auto lastEv = cardCheckService_->getLastEventType();
-                if (lastEv.has_value()) {
-                    if (*lastEv == LogEventType::PersistFailed) {
-                        statusMessage = "Помилка збереження. Доступ не надано.";
-                    } else {
-                        statusMessage = "Доступ відхилено. " + CardCheck::eventTypeToMessage(*lastEv);
-                    }
-                } else {
-                    statusMessage = "Доступ відхилено.";
-                }
-            }
-            return true;
-        }
-
+    auto eventHandler = CatchEvent(container, [this, attemptLogin](Event event) {
         if (event == Event::Escape) {
             cardCheckService_->logCancellation(cardIdInput);
             if (onBack_) {
@@ -104,10 +130,21 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
             }
             return true;
         }
+
+        if (event == Event::Return) {
+            if (systemTimeCheckbox_->Focused() || dayDropdown_->Focused()) {
+                return false;
+            }
+            if (cardIdBox_->Focused() || cardPinBox_->Focused() || timeBox_->Focused()) {
+                attemptLogin();
+                return true;
+            }
+        }
+
         return false;
     });
 
-    component = Renderer(eventHandler, [this] {
+    component = Renderer(eventHandler, [this, slotRow, loginButton] {
         auto statusCol = (statusMessage.find("Доступ дозволено") != std::string::npos) ? Color::Green :
                          (statusMessage.find("Доступ відхилено") != std::string::npos ||
                           statusMessage.find("Помилка") != std::string::npos ||
@@ -130,7 +167,7 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
         if (!useSystemTime) {
             children.push_back(hbox({
                 text(" Day: ") | center,
-                dayDropdown_->Render() | size(WIDTH, EQUAL, 20),
+                dayDropdown_->Render() | size(WIDTH, EQUAL, 22),
                 text(" Time (HH:MM): ") | center,
                 timeBox_->Render() | size(WIDTH, EQUAL, 10) | border,
             }));
@@ -138,8 +175,11 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
             children.push_back(text("  [Using live system clock for slot check]") | color(Color::Cyan) | dim);
         }
 
+        children.push_back(separatorLight());
+        children.push_back(loginButton->Render() | center);
+
         children.push_back(separator());
-        children.push_back(text("[Enter] - Спроба входу  |  [Esc] - Скасувати") | dim | center);
+        children.push_back(text("[Space/Enter] Toggle/Select  |  [Enter on Input] Login  |  [Esc] Cancel") | dim | center);
         children.push_back(separator());
         children.push_back(text(statusMessage) | color(statusCol) | center);
 
