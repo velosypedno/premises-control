@@ -59,4 +59,4 @@ private:
     std::shared_ptr<AdminAccessLog> accessLog_;
 };
 
-} // namespace UI
+}

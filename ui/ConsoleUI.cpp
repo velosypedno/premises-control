@@ -9,12 +9,6 @@
 #include <string>
 #include <memory>
 
-#include "../infra/Database.h"
-#include "../infra/Config.h"
-#include "../services/AdminCheck.h"
-#include "../services/CardCheck.h"
-#include "../services/UserService.h"
-#include "../services/CardService.h"
 
 #include "ftxui/component/component.hpp"
 #include "ftxui/component/screen_interactive.hpp"
@@ -64,14 +58,14 @@ void runConsoleUI(const AppDependencies& deps) {
 
     int mainSelected = 0;
     std::vector<std::string> mainEntries = {
-        "1. Спроба входу",
-        "2. Режим адміністратора",
-        "0. Вихід"
+        "1. Access Attempt",
+        "2. Administrator Mode",
+        "0. Exit"
     };
     auto mainMenu = Menu(&mainEntries, &mainSelected);
     auto screen = ScreenInteractive::TerminalOutput();
 
-    std::string mainStatus = "Оберіть дію (стрілки + Enter).";
+    std::string mainStatus = "Select an action (Arrow keys + Enter).";
 
     auto mainComponent = CatchEvent(mainMenu, [&](Event event) {
         if (event == Event::Return) {
@@ -91,7 +85,7 @@ void runConsoleUI(const AppDependencies& deps) {
 
     auto mainRenderer = Renderer(mainComponent, [&] {
         Elements children;
-        children.push_back(text("ТЕРМІНАЛ КОНТРОЛЮ ДОСТУПУ") | bold | color(Color::Cyan) | center);
+        children.push_back(text("ACCESS CONTROL TERMINAL") | bold | color(Color::Cyan) | center);
         children.push_back(separator());
         children.push_back(mainMenu->Render() | border | color(Color::Green));
         children.push_back(separator());
@@ -113,4 +107,4 @@ void runConsoleUI(const AppDependencies& deps) {
     screen.Loop(container);
 }
 
-} // namespace UI
+}

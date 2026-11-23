@@ -13,7 +13,7 @@ bool isDigitsOnly(const std::string& str) {
     });
 }
 
-} // namespace
+}
 
 CardService::CardService(
     std::shared_ptr<CardRepo> cardRepo,

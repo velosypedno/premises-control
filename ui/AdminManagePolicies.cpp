@@ -348,4 +348,4 @@ AdminManagePolicies::AdminManagePolicies(
     component_ = tabContainer_;
 }
 
-} // namespace UI
+}

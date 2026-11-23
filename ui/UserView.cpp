@@ -19,7 +19,7 @@ bool isValidHHMM(const std::string& t) {
     int m = (t[3] - '0') * 10 + (t[4] - '0');
     return h >= 0 && h <= 23 && m >= 0 && m <= 59;
 }
-} // namespace
+}
 
 UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
                    std::shared_ptr<CardRepo> cardRepo,
@@ -89,7 +89,7 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
         if (ok) {
             auto cardOpt = cardRepo_->getByCardId(cardIdInput);
             auto userOpt = userRepo_->getById(std::string(cardOpt->getUserId()));
-            statusMessage = "Доступ дозволено. Двері відкрито [симуляція].";
+            statusMessage = "Access granted. Door unlocked [simulation].";
             if (onSuccess_ && cardOpt && userOpt) {
                 onSuccess_(*cardOpt, *userOpt);
             }
@@ -97,17 +97,17 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
             auto lastEv = cardCheckService_->getLastEventType();
             if (lastEv.has_value()) {
                 if (*lastEv == LogEventType::PersistFailed) {
-                    statusMessage = "Помилка збереження. Доступ не надано.";
+                    statusMessage = "Failed to save state. Access denied.";
                 } else {
-                    statusMessage = "Доступ відхилено. " + CardCheck::eventTypeToMessage(*lastEv);
+                    statusMessage = "Access denied. " + CardCheck::eventTypeToMessage(*lastEv);
                 }
             } else {
-                statusMessage = "Доступ відхилено.";
+                statusMessage = "Access denied.";
             }
         }
     };
 
-    auto loginButton = Button("Увійти", attemptLogin);
+    auto loginButton = Button("Log In", attemptLogin);
 
     auto slotRow = Container::Horizontal({
         dayDropdown_,
@@ -145,13 +145,13 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
     });
 
     component = Renderer(eventHandler, [this, slotRow, loginButton] {
-        auto statusCol = (statusMessage.find("Доступ дозволено") != std::string::npos) ? Color::Green :
-                         (statusMessage.find("Доступ відхилено") != std::string::npos ||
-                          statusMessage.find("Помилка") != std::string::npos ||
+        auto statusCol = (statusMessage.find("Access granted") != std::string::npos) ? Color::Green :
+                         (statusMessage.find("Access denied") != std::string::npos ||
+                          statusMessage.find("Failed") != std::string::npos ||
                           statusMessage.rfind("[Error]", 0) == 0) ? Color::Red : Color::Yellow;
 
         Elements children;
-        children.push_back(text("=== СПРОБА ВХОДУ ===") | bold | color(Color::Blue) | center);
+        children.push_back(text("=== ACCESS ATTEMPT ===") | bold | color(Color::Blue) | center);
         children.push_back(separator());
 
         children.push_back(text("Card ID:"));
@@ -161,7 +161,7 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
         children.push_back(cardPinBox_->Render() | border);
 
         children.push_back(separatorLight());
-        children.push_back(text("Перевірка розкладу:") | bold);
+        children.push_back(text("Schedule Verification:") | bold);
         children.push_back(systemTimeCheckbox_->Render());
 
         if (!useSystemTime) {
@@ -187,4 +187,4 @@ UserView::UserView(std::shared_ptr<CardCheck> cardCheck,
     });
 }
 
-} // namespace UI
+}

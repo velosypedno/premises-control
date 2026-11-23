@@ -29,7 +29,7 @@ private:
         "Sunday (SUN)"
     };
     bool useSystemTime = false;
-    std::string statusMessage = "Введіть номер картки та PIN.";
+    std::string statusMessage = "Enter card number and PIN.";
 
     std::shared_ptr<CardCheck> cardCheckService_;
     std::shared_ptr<CardRepo> cardRepo_;
@@ -55,7 +55,7 @@ public:
     ftxui::Component getComponent() { return component; }
 
     void resetStatus() {
-        statusMessage = "Введіть номер картки та PIN.";
+        statusMessage = "Enter card number and PIN.";
         cardIdInput = "";
         cardPinInput = "";
         timeInput = "10:00";
@@ -66,4 +66,4 @@ public:
     CardCheck& getCardCheckService() { return *cardCheckService_; }
 };
 
-} // namespace UI
+}

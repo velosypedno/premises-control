@@ -65,4 +65,4 @@ AdminView::AdminView(std::shared_ptr<AdminCheck> adminCheck,
     });
 }
 
-} // namespace UI
+}

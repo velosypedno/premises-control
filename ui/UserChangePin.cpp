@@ -131,4 +131,4 @@ UserChangePin::UserChangePin(
     });
 }
 
-} // namespace UI
+}

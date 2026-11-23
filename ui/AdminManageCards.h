@@ -95,4 +95,4 @@ private:
     ftxui::Component tabContainer_;
 };
 
-} // namespace UI
+}

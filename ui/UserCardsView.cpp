@@ -169,4 +169,4 @@ UserCardsView::UserCardsView(
     });
 }
 
-} // namespace UI
+}

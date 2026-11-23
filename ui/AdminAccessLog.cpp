@@ -76,4 +76,4 @@ AdminAccessLog::AdminAccessLog(
     component_ = renderer;
 }
 
-} // namespace UI
+}

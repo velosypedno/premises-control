@@ -99,4 +99,4 @@ UserPolicyView::UserPolicyView(
     });
 }
 
-} // namespace UI
+}

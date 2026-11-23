@@ -45,24 +45,24 @@ void CardCheck::logCancellation(const std::string& cardId) {
 
 std::string CardCheck::eventTypeToMessage(LogEventType event) {
     switch (event) {
-        case LogEventType::Allowed: return "Доступ дозволено. Двері відкрито [симуляція].";
-        case LogEventType::WrongPin: return "Хибний PIN.";
-        case LogEventType::Blocked: return "Картка заблокована.";
-        case LogEventType::Alarm: return "Блокування і тривога.";
-        case LogEventType::Cancelled: return "Введення скасовано.";
-        case LogEventType::RevokedCard: return "Картку відкликано.";
-        case LogEventType::CardDoesNotExist: return "Невідома картка.";
-        case LogEventType::PolicyNotSet: return "Розклад доступу не призначено.";
-        case LogEventType::TimeIsNotAllowed: return "Поза дозволеним розкладом.";
-        case LogEventType::DayIsNotAllowed: return "День не дозволено розкладом.";
-        case LogEventType::UserInactive: return "Користувач неактивний.";
-        case LogEventType::PersistFailed: return "Помилка збереження стану.";
-        case LogEventType::CardIssued: return "Картку видано.";
-        case LogEventType::CardRevoked: return "Картку відкликано адміністратором.";
-        case LogEventType::PinChanged: return "PIN змінено.";
-        case LogEventType::CardUnlocked: return "Картку розблоковано.";
+        case LogEventType::Allowed: return "Access granted. Door unlocked [simulation].";
+        case LogEventType::WrongPin: return "Incorrect PIN.";
+        case LogEventType::Blocked: return "Card is blocked.";
+        case LogEventType::Alarm: return "Lockdown and alarm triggered.";
+        case LogEventType::Cancelled: return "Input cancelled.";
+        case LogEventType::RevokedCard: return "Card has been revoked.";
+        case LogEventType::CardDoesNotExist: return "Unknown card.";
+        case LogEventType::PolicyNotSet: return "Access schedule is not assigned.";
+        case LogEventType::TimeIsNotAllowed: return "Outside allowed schedule hours.";
+        case LogEventType::DayIsNotAllowed: return "Day is not permitted by schedule.";
+        case LogEventType::UserInactive: return "User is inactive.";
+        case LogEventType::PersistFailed: return "Failed to persist state.";
+        case LogEventType::CardIssued: return "Card issued.";
+        case LogEventType::CardRevoked: return "Card revoked by administrator.";
+        case LogEventType::PinChanged: return "PIN changed.";
+        case LogEventType::CardUnlocked: return "Card unlocked.";
     }
-    return "Доступ відхилено.";
+    return "Access denied.";
 }
 
 bool CardCheck::authenticate(const std::string& cardId, const std::string& pin, DayOfWeek currentDay, const std::string& currentTime) {

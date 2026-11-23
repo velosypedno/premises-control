@@ -26,4 +26,4 @@ namespace UI {
 
     void runConsoleUI(const AppDependencies& deps);
 
-} // namespace UI
+}

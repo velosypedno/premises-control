@@ -32,4 +32,4 @@ private:
     ftxui::Component component_;
 };
 
-} // namespace UI
+}

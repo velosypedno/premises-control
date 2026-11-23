@@ -57,4 +57,4 @@ private:
     std::shared_ptr<UserPolicyView> policyView_;
 };
 
-} // namespace UI
+}

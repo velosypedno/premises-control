@@ -406,4 +406,4 @@ AdminManageCards::AdminManageCards(
     component_ = tabContainer_;
 }
 
-} // namespace UI
+}

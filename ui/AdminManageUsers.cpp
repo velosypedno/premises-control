@@ -321,4 +321,4 @@ AdminManageUsers::AdminManageUsers(
     component_ = tabContainer_;
 }
 
-} // namespace UI
+}

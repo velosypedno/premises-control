@@ -130,19 +130,19 @@ enum class UserError {
 inline std::string toErrorMessage(UserError err) {
     switch (err) {
         case UserError::UserNotFound:
-            return "Користувача не знайдено.";
+            return "User not found.";
         case UserError::EmptyFields:
-            return "Всі обов'язкові поля мають бути заповнені.";
+            return "All required fields must be filled out.";
         case UserError::UsernameAlreadyTaken:
-            return "Це ім'я користувача (username) вже зайняте іншим користувачем.";
+            return "This username is already taken by another user.";
         case UserError::InvalidPassword:
-            return "Неприпустимий формат пароля.";
+            return "Invalid password format.";
         case UserError::PolicyNotFound:
-            return "Вказану політику доступу не знайдено.";
+            return "The specified access policy was not found.";
         case UserError::DatabaseError:
-            return "Помилка бази даних під час збереження користувача.";
+            return "Database error while saving the user.";
     }
-    return "Невідома помилка користувача.";
+    return "Unknown user error.";
 }
 
 enum class CardError {
@@ -163,31 +163,31 @@ enum class CardError {
 inline std::string toErrorMessage(CardError err) {
     switch (err) {
         case CardError::CardNotFound:
-            return "Картку з таким номером не знайдено.";
+            return "Card with this number was not found.";
         case CardError::UserNotFound:
-            return "Користувача з таким ID не знайдено.";
+            return "User with this ID was not found.";
         case CardError::CardAlreadyExists:
-            return "Картка з таким номером вже існує в системі.";
+            return "A card with this number already exists in the system.";
         case CardError::InvalidCardFormat:
-            return "Номер картки повинен містити рівно 16 цифр.";
+            return "Card number must contain exactly 16 digits.";
         case CardError::InvalidPinFormat:
-            return "PIN-код повинен містити рівно 4 цифри.";
+            return "PIN code must contain exactly 4 digits.";
         case CardError::OldPinsDoNotMatch:
-            return "Введені поля старого PIN-коду не збігаються.";
+            return "The entered old PIN fields do not match.";
         case CardError::OldPinIncorrect:
-            return "Введено невірний старий PIN-код.";
+            return "The entered old PIN is incorrect.";
         case CardError::NewPinsDoNotMatch:
-            return "Новий PIN-код та його підтвердження не збігаються.";
+            return "The new PIN and its confirmation do not match.";
         case CardError::CardAlreadyBlocked:
-            return "Картка вже заблокована.";
+            return "The card is already blocked.";
         case CardError::CardAlreadyActive:
-            return "Картка вже активна.";
+            return "The card is already active.";
         case CardError::CardRevoked:
-            return "Картку відкликано (не підлягає відновленню).";
+            return "The card has been revoked (cannot be restored).";
         case CardError::DatabaseError:
-            return "Помилка бази даних при роботі з карткою.";
+            return "Database error while processing the card.";
     }
-    return "Невідома помилка картки.";
+    return "Unknown card error.";
 }
 
 } // namespace Services

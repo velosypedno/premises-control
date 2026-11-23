@@ -113,4 +113,4 @@ AdminDashboard::AdminDashboard(
     component_ = tabContainer_;
 }
 
-} // namespace UI
+}

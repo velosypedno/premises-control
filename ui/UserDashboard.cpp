@@ -111,4 +111,4 @@ UserDashboard::UserDashboard(
     component_ = tabContainer_;
 }
 
-} // namespace UI
+}
