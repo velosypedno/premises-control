@@ -73,7 +73,7 @@ void seedDefaultData(
     std::cout << "  User card:  9876543210987654 / PIN 2222 (no policy)\n";
 }
 
-} // namespace
+}
 
 int main() {
     try {

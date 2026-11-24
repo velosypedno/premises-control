@@ -1,56 +1,99 @@
 #include "AdminCheck.h"
 #include "../models/Card.h"
 
+std::string toErrorMessage(AdminAuthError err) {
+    switch (err) {
+        case AdminAuthError::InvalidCredentials:
+            return "Invalid username or password.";
+        case AdminAuthError::NotAnAdmin:
+            return "Access denied: administrator privileges required.";
+        case AdminAuthError::UserInactive:
+            return "Administrator account is inactive.";
+        case AdminAuthError::PasswordNotSet:
+            return "Password authentication is not configured for this account.";
+        case AdminAuthError::DatabaseError:
+            return "Database error during authentication.";
+    }
+    return "Administrator access denied.";
+}
+
 AdminCheck::AdminCheck(std::shared_ptr<UserRepo> userRepo,
                        std::shared_ptr<CardRepo> cardRepo,
                        std::shared_ptr<CryptoService> cryptoService)
-    : userRepo(std::move(userRepo)),
-      cardRepo(std::move(cardRepo)),
-      cryptoService(std::move(cryptoService)) {}
+    : userRepo_(std::move(userRepo)),
+      cardRepo_(std::move(cardRepo)),
+      cryptoService_(std::move(cryptoService)) {}
 
-bool AdminCheck::authenticate(const std::string& username, const std::string& password) const {
-    auto userOpt = userRepo->getByUsername(username);
+Services::Result<User, AdminAuthError> AdminCheck::authenticate(
+    const std::string& username,
+    const std::string& password
+) const {
+    try {
+        auto userOpt = userRepo_->getByUsername(username);
+        if (!userOpt.has_value()) {
+            return Services::Err(AdminAuthError::InvalidCredentials);
+        }
 
-    if (!userOpt.has_value() || userOpt->getRole() != UserRole::Admin) {
-        return false;
+        User user = std::move(*userOpt);
+
+        if (user.getRole() != UserRole::Admin) {
+            return Services::Err(AdminAuthError::NotAnAdmin);
+        }
+
+        if (!user.isActive()) {
+            return Services::Err(AdminAuthError::UserInactive);
+        }
+
+        const auto& passwordHashOpt = user.getPasswordHashOpt();
+        if (!passwordHashOpt.has_value()) {
+            return Services::Err(AdminAuthError::PasswordNotSet);
+        }
+
+        std::string inputHash = cryptoService_->hashPin(password);
+        if (*passwordHashOpt != inputHash) {
+            return Services::Err(AdminAuthError::InvalidCredentials);
+        }
+
+        return Services::Ok(std::move(user));
+    } catch (const std::exception&) {
+        return Services::Err(AdminAuthError::DatabaseError);
     }
-
-    if (!userOpt->isActive()) {
-        return false;
-    }
-
-    const auto& passwordHashOpt = userOpt->getPasswordHashOpt();
-    if (!passwordHashOpt.has_value()) {
-        return false;
-    }
-
-    std::string inputHash = cryptoService->hashPin(password);
-    return *passwordHashOpt == inputHash;
 }
 
-std::optional<User> AdminCheck::authenticateByCard(const std::string& cardId, const std::string& pin) const {
-    auto cardOpt = cardRepo->getByCardId(cardId);
-    if (!cardOpt.has_value()) {
-        return std::nullopt;
-    }
+Services::Result<User, AdminAuthError> AdminCheck::authenticateByCard(
+    const std::string& cardId,
+    const std::string& pin
+) const {
+    try {
+        auto cardOpt = cardRepo_->getByCardId(cardId);
+        if (!cardOpt.has_value()) {
+            return Services::Err(AdminAuthError::InvalidCredentials);
+        }
 
-    const Card& card = *cardOpt;
-    if (card.getStatus() != CardStatus::Active) {
-        return std::nullopt;
-    }
+        const Card& card = *cardOpt;
+        if (card.getStatus() != CardStatus::Active) {
+            return Services::Err(AdminAuthError::InvalidCredentials);
+        }
 
-    if (cryptoService->hashPin(pin) != card.getPinHash()) {
-        return std::nullopt;
-    }
+        if (cryptoService_->hashPin(pin) != card.getPinHash()) {
+            return Services::Err(AdminAuthError::InvalidCredentials);
+        }
 
-    auto userOpt = userRepo->getById(std::string(card.getUserId()));
-    if (!userOpt.has_value()) {
-        return std::nullopt;
-    }
+        auto userOpt = userRepo_->getById(std::string(card.getUserId()));
+        if (!userOpt.has_value()) {
+            return Services::Err(AdminAuthError::InvalidCredentials);
+        }
 
-    if (userOpt->getRole() != UserRole::Admin || !userOpt->isActive()) {
-        return std::nullopt;
-    }
+        User user = std::move(*userOpt);
+        if (user.getRole() != UserRole::Admin) {
+            return Services::Err(AdminAuthError::NotAnAdmin);
+        }
+        if (!user.isActive()) {
+            return Services::Err(AdminAuthError::UserInactive);
+        }
 
-    return userOpt;
+        return Services::Ok(std::move(user));
+    } catch (const std::exception&) {
+        return Services::Err(AdminAuthError::DatabaseError);
+    }
 }

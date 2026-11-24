@@ -5,63 +5,78 @@ namespace UI {
 AdminView::AdminView(std::shared_ptr<AdminCheck> adminCheck,
                      std::function<void()> onBack,
                      std::function<void(const User&)> onSuccess)
-    : adminCheck_(std::move(adminCheck)), onBack(onBack), onSuccess(onSuccess)
+    : adminCheck_(std::move(adminCheck)),
+      onBack_(std::move(onBack)),
+      onSuccess_(std::move(onSuccess))
 {
     using namespace ftxui;
 
     InputOption passwordOption;
     passwordOption.password = true;
 
-    auto cardBox = Input(&cardIdInput, "Card ID (16 digits)");
-    auto pinBox = Input(&pinInput, "PIN", passwordOption);
+    usernameBox_ = Input(&usernameInput_, "Username");
+    passwordBox_ = Input(&passwordInput_, "Password", passwordOption);
+
+    auto attemptLogin = [this]() {
+        if (usernameInput_.empty() || passwordInput_.empty()) {
+            statusMessage_ = "[Error]: Enter both username and password.";
+            return;
+        }
+
+        auto result = adminCheck_->authenticate(usernameInput_, passwordInput_);
+        if (result.is_ok()) {
+            statusMessage_ = "[Success]: Administrator authenticated!";
+            if (onSuccess_) {
+                onSuccess_(result.value());
+            }
+        } else {
+            statusMessage_ = "[Error]: " + toErrorMessage(result.error());
+        }
+    };
+
+    auto loginButton = Button("Log In", attemptLogin);
 
     auto container = Container::Vertical({
-        cardBox,
-        pinBox,
+        usernameBox_,
+        passwordBox_,
+        loginButton,
     });
 
-    auto eventHandler = CatchEvent(container, [this](Event event) {
-        if (event == Event::Return) {
-            if (cardIdInput.empty() || pinInput.empty()) {
-                statusMessage = "[Error]: Enter both card number and PIN.";
-                return true;
-            }
-
-            auto userOpt = adminCheck_->authenticateByCard(cardIdInput, pinInput);
-            if (userOpt.has_value()) {
-                authenticatedUser_ = userOpt;
-                statusMessage = "[Success]: Administrator authenticated!";
-                if (this->onSuccess) {
-                    this->onSuccess(*userOpt);
-                }
-            } else {
-                statusMessage = "[Error]: Admin access denied (need ADMIN role card + PIN).";
+    auto eventHandler = CatchEvent(container, [this, attemptLogin](Event event) {
+        if (event == Event::Escape) {
+            if (onBack_) {
+                onBack_();
             }
             return true;
         }
-        if (event == Event::Escape) {
-            if (this->onBack) {
-                this->onBack();
+        if (event == Event::Return) {
+            if (usernameBox_->Focused() || passwordBox_->Focused()) {
+                attemptLogin();
+                return true;
             }
-            return true;
         }
         return false;
     });
 
-    component = Renderer(eventHandler, [this, cardBox, pinBox] {
+    component_ = Renderer(eventHandler, [this, loginButton] {
+        auto statusCol = (statusMessage_.rfind("[Success]", 0) == 0) ? Color::Green :
+                         (statusMessage_.rfind("[Error]", 0) == 0) ? Color::Red : Color::Yellow;
+
         Elements children;
-        children.push_back(text("=== РЕЖИМ АДМІНІСТРАТОРА ===") | bold | color(Color::Red) | center);
+        children.push_back(text("=== ADMINISTRATOR MODE ===") | bold | color(Color::Red) | center);
         children.push_back(separator());
-        children.push_back(text("Card ID:"));
-        children.push_back(cardBox->Render() | border);
-        children.push_back(text("PIN:"));
-        children.push_back(pinBox->Render() | border);
+        children.push_back(text("Username:"));
+        children.push_back(usernameBox_->Render() | border);
+        children.push_back(text("Password:"));
+        children.push_back(passwordBox_->Render() | border);
+        children.push_back(separatorLight());
+        children.push_back(loginButton->Render() | center);
         children.push_back(separator());
         children.push_back(text("[Enter] - Login  |  [Esc] - Back") | dim | center);
         children.push_back(separator());
-        children.push_back(text(statusMessage) | color(Color::Yellow) | center);
+        children.push_back(text(statusMessage_) | color(statusCol) | center);
 
-        return vbox(children) | border | size(WIDTH, GREATER_THAN, 50);
+        return vbox(std::move(children)) | border | size(WIDTH, GREATER_THAN, 50);
     });
 }
 

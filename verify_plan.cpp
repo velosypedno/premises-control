@@ -185,10 +185,14 @@ int main() {
     CHECK(check.authenticate("1234567890123456", "5555", DayOfWeek::Monday, "12:00").is_ok(),
           "11. new PIN accepted");
 
-    CHECK(adminCheck.authenticateByCard("0000000000000001", "0000").has_value(),
-          "12. ADMIN card+PIN accepted");
-    CHECK(!adminCheck.authenticateByCard("1234567890123456", "5555").has_value(),
-          "12. USER card cannot open admin");
+    CHECK(adminCheck.authenticate("root", "admin").is_ok(),
+          "12a. ADMIN username+password accepted");
+    CHECK(adminCheck.authenticate("root", "wrong").is_err(),
+          "12b. ADMIN wrong password rejected");
+    CHECK(adminCheck.authenticateByCard("0000000000000001", "0000").is_ok(),
+          "12c. ADMIN card+PIN accepted");
+    CHECK(adminCheck.authenticateByCard("1234567890123456", "5555").is_err(),
+          "12d. USER card cannot open admin");
 
     {
         auto u = userRepo->getById(std::string(user.getId())).value();
