@@ -38,7 +38,15 @@ private:
     std::shared_ptr<CryptoService> cryptoService_;
     int maxFailedAttempts_;
 
-    void recordAudit(const std::string& cardId, LogEventType eventType) const;
+    void recordAudit(const std::string& timestamp, const std::string& cardId, LogEventType eventType) const;
+
+    Services::Result<AuthSuccess, AuthError> authenticateAt(
+        const std::string& cardId,
+        const std::string& pin,
+        DayOfWeek day,
+        const std::string& time,
+        const std::string& auditTimestamp
+    ) const;
 
 public:
     CardCheck(
